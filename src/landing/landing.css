@@ -9,7 +9,6 @@ html:has(.lp) { scroll-behavior: smooth; }
   background: linear-gradient(100deg, var(--breast), var(--sleep) 55%, var(--bottle));
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-.lp h1 .lp-grad { white-space: nowrap; } /* « En un tap. » ne se coupe jamais en deux lignes */
 .lp-kicker { font-size: 0.8rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
 .lp-lead { font-size: 1.15rem; line-height: 1.5; color: var(--muted); }
 .lp-lead.small { font-size: 1.02rem; }
@@ -47,7 +46,7 @@ html:has(.lp) { scroll-behavior: smooth; }
   display: inline-block; padding: 6px 14px; border-radius: 99px; margin-bottom: 16px; font-size: 0.85rem; font-weight: 800;
   color: var(--breast-fg); background: var(--breast-bg);
 }
-.lp h1 { font-size: clamp(2.5rem, 9vw, 4.4rem); line-height: 1.02; letter-spacing: -0.04em; font-weight: 900; margin-bottom: 18px; }
+.lp h1 { font-size: clamp(2.2rem, 8.2vw, 4rem); line-height: 1.06; letter-spacing: -0.028em; font-weight: 900; margin-bottom: 18px; text-wrap: balance; }
 .lp-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
 .lp-cta.center { justify-content: center; }
 .lp-trust { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 22px 0 0; padding: 0; list-style: none; font-size: 0.9rem; font-weight: 650; color: var(--muted); }
