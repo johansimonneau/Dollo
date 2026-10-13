@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { InviteByEmail } from '../components/InviteByEmail';
 import { useToast } from '../components/toast';
 import { errorMessage, type Store } from '../data/store';
 import { eventsToCsv } from '../lib/labels';
@@ -107,23 +108,27 @@ export function Settings({ store, baby, events, email, now, onBabyUpdated, onAdd
 
       <section className="card pad" aria-label="Partage entre parents">
         <h2 className="section-title flush">Partager avec l'autre parent</h2>
-        {store.mode === 'cloud' && baby.inviteCode ? (
+        {store.mode === 'cloud' ? (
           <>
-            <p className="hint">
-              Votre partenaire crée son compte, puis choisit « Rejoindre » et saisit ce code. Vous verrez chacun les tétées, couches et siestes de
-              l'autre en direct.
-            </p>
-            <p className="invite-code" aria-label="Code d'invitation">
-              {prettyCode(baby.inviteCode)}
-            </p>
-            <div className="row-actions">
-              <button type="button" className="btn" onClick={copyCode}>
-                Copier le code
-              </button>
-              <button type="button" className="btn ghost" onClick={renewCode}>
-                Renouveler
-              </button>
-            </div>
+            <InviteByEmail store={store} baby={baby} now={now} />
+            {baby.inviteCode && (
+              <>
+                <p className="hint alt-share">
+                  Ou, sans e-mail : l'autre parent crée son compte, choisit « Rejoindre » et saisit ce code.
+                </p>
+                <p className="invite-code" aria-label="Code d'invitation">
+                  {prettyCode(baby.inviteCode)}
+                </p>
+                <div className="row-actions">
+                  <button type="button" className="btn" onClick={copyCode}>
+                    Copier le code
+                  </button>
+                  <button type="button" className="btn ghost" onClick={renewCode}>
+                    Renouveler
+                  </button>
+                </div>
+              </>
+            )}
           </>
         ) : (
           <p className="hint">

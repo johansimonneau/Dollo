@@ -1,4 +1,11 @@
-import type { Baby, BabyEvent, NewEvent } from '../lib/types';
+import type { Baby, BabyEvent, Invitation, NewEvent } from '../lib/types';
+
+export interface InviteResult {
+  invitation: Invitation;
+  /** false si l'e-mail n'a pas pu partir : l'invitation reste valable (la personne rejoint en se connectant avec cette adresse). */
+  emailSent: boolean;
+  emailError?: string;
+}
 
 export interface BabyInput {
   name: string;
@@ -19,6 +26,13 @@ export interface Store {
   joinBaby(code: string): Promise<Baby>;
   /** Invalide l'ancien code d'invitation et en renvoie un nouveau (propriétaire uniquement). */
   regenerateInviteCode(babyId: string): Promise<string>;
+  /** Invitations envoyées pour ce bébé (en attente, expirées, acceptées). */
+  listInvitations(babyId: string): Promise<Invitation[]>;
+  /** Invite un parent par e-mail : enregistre l'invitation puis envoie un code de connexion à cette adresse. */
+  inviteParent(babyId: string, email: string): Promise<InviteResult>;
+  cancelInvitation(id: string): Promise<void>;
+  /** À appeler à la connexion : rejoint les bébés pour lesquels l'adresse de l'utilisateur a été invitée. */
+  acceptInvitations(): Promise<Baby[]>;
   listEvents(babyId: string, sinceIso: string): Promise<BabyEvent[]>;
   addEvent(event: NewEvent): Promise<BabyEvent>;
   updateEvent(id: string, patch: Partial<NewEvent>): Promise<BabyEvent>;

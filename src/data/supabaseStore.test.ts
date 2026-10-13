@@ -4,8 +4,10 @@ import { emptyEvent } from '../lib/types';
 import { createSupabaseStore } from './supabaseStore';
 
 /** Faux client minimal : enregistre l'appel et renvoie la réponse programmée. */
-function fakeClient(response: { data?: unknown; error?: { message: string } | null }) {
-  const calls: { table?: string; op?: string; payload?: unknown; filters: [string, unknown][]; rpc?: [string, unknown] } = { filters: [] };
+function fakeClient(response: { data?: unknown; error?: { message: string } | null }, otpError: { message: string } | null = null) {
+  const calls: { table?: string; op?: string; payload?: unknown; filters: [string, unknown][]; rpc?: [string, unknown]; otp?: unknown } = {
+    filters: [],
+  };
   const result = { data: response.data ?? null, error: response.error ?? null };
   const chain: Record<string, unknown> = {
     select: () => chain,
@@ -22,6 +24,12 @@ function fakeClient(response: { data?: unknown; error?: { message: string } | nu
   const client = {
     from: (table: string) => ((calls.table = table), chain),
     rpc: (name: string, args: unknown) => ((calls.rpc = [name, args]), chain),
+    auth: {
+      signInWithOtp: (args: unknown) => {
+        calls.otp = args;
+        return Promise.resolve({ data: {}, error: otpError });
+      },
+    },
   } as unknown as SupabaseClient;
   return { client, calls };
 }
@@ -110,5 +118,86 @@ describe('supabaseStore', () => {
     });
     const [b] = await createSupabaseStore(client).listBabies();
     expect(b).toMatchObject({ id: 'b1', name: 'Léa', birthDate: '2026-09-20', inviteCode: 'ABCDE12345' });
+  });
+
+  describe('invitations par e-mail', () => {
+    const invRow = {
+      id: 'i1',
+      baby_id: 'b1',
+      email: 'papa@example.com',
+      created_at: '2026-10-13T10:00:00Z',
+      expires_at: '2026-10-27T10:00:00Z',
+      accepted_at: null,
+    };
+
+    it("enregistre l'invitation PUIS envoie le code à l'adresse normalisée par la base", async () => {
+      const { client, calls } = fakeClient({ data: invRow });
+      const res = await createSupabaseStore(client).inviteParent('b1', ' Papa@Example.com ');
+      expect(calls.rpc).toEqual(['invite_parent', { p_baby_id: 'b1', p_email: ' Papa@Example.com ' }]);
+      // l'e-mail part vers l'adresse renvoyée par la base (déjà en minuscules), et crée le compte si besoin
+      expect(calls.otp).toEqual({ email: 'papa@example.com', options: { shouldCreateUser: true } });
+      expect(res).toEqual({
+        invitation: { id: 'i1', babyId: 'b1', email: 'papa@example.com', createdAt: '2026-10-13T10:00:00Z', expiresAt: '2026-10-27T10:00:00Z', acceptedAt: null },
+        emailSent: true,
+      });
+    });
+
+    it("si l'e-mail ne part pas, l'invitation reste valable et l'erreur est expliquée en français", async () => {
+      const { client } = fakeClient({ data: invRow }, { message: 'email rate limit exceeded' });
+      const res = await createSupabaseStore(client).inviteParent('b1', 'papa@example.com');
+      expect(res.invitation.id).toBe('i1');
+      expect(res.emailSent).toBe(false);
+      expect(res.emailError).toBe("Trop d'e-mails envoyés pour le moment. Réessayez dans quelques minutes.");
+    });
+
+    it("n'envoie aucun e-mail quand la base refuse l'invitation", async () => {
+      const { client, calls } = fakeClient({ error: { message: 'already_member' } });
+      await expect(createSupabaseStore(client).inviteParent('b1', 'maman@example.com')).rejects.toThrow('Cette personne a déjà accès à ce bébé.');
+      expect(calls.otp).toBeUndefined();
+    });
+
+    it.each([
+      ['invalid_email', 'Adresse e-mail invalide.'],
+      ['too_many_invitations', "Trop d'invitations en attente (5 maximum). Annulez-en une d'abord."],
+      ['forbidden', "Vous n'avez pas le droit de faire cela."],
+    ])('traduit l\'erreur « %s »', async (code, message) => {
+      const { client } = fakeClient({ error: { message: code } });
+      await expect(createSupabaseStore(client).inviteParent('b1', 'x@example.com')).rejects.toThrow(message);
+    });
+
+    it("explique quoi faire quand la migration n'a pas été appliquée", async () => {
+      const { client } = fakeClient({ error: { message: 'Could not find the function public.invite_parent(p_baby_id, p_email) in the schema cache' } });
+      await expect(createSupabaseStore(client).inviteParent('b1', 'x@example.com')).rejects.toThrow('appliquez les migrations Supabase');
+    });
+
+    it('liste les invitations du bébé, les plus récentes en premier', async () => {
+      const { client, calls } = fakeClient({ data: [invRow] });
+      const list = await createSupabaseStore(client).listInvitations('b1');
+      expect(calls.table).toBe('baby_invitations');
+      expect(calls.filters).toEqual([['baby_id', 'b1']]);
+      expect(list[0]).toMatchObject({ email: 'papa@example.com', acceptedAt: null });
+    });
+
+    it('annule une invitation', async () => {
+      const { client, calls } = fakeClient({});
+      await createSupabaseStore(client).cancelInvitation('i1');
+      expect(calls.op).toBe('delete');
+      expect(calls.filters).toEqual([['id', 'i1']]);
+    });
+
+    it('accepte les invitations et renvoie les bébés rejoints', async () => {
+      const { client, calls } = fakeClient({
+        data: [{ id: 'b1', name: 'Léa', birth_date: null, invite_code: 'ABCDE12345', created_at: '2026-10-01T00:00:00Z' }],
+      });
+      const joined = await createSupabaseStore(client).acceptInvitations();
+      expect(calls.rpc?.[0]).toBe('accept_invitations');
+      expect(joined).toHaveLength(1);
+      expect(joined[0]).toMatchObject({ id: 'b1', name: 'Léa' });
+    });
+
+    it("renvoie une liste vide quand il n'y a rien à accepter", async () => {
+      const { client } = fakeClient({ data: [] });
+      expect(await createSupabaseStore(client).acceptInvitations()).toEqual([]);
+    });
   });
 });

@@ -12,6 +12,17 @@ export interface Baby {
   createdAt: string;
 }
 
+export interface Invitation {
+  id: string;
+  babyId: string;
+  /** Adresse invitée, toujours en minuscules. */
+  email: string;
+  createdAt: string;
+  expiresAt: string;
+  /** Renseigné quand la personne a rejoint le bébé. */
+  acceptedAt: string | null;
+}
+
 export interface BabyEvent {
   id: string;
   babyId: string;
