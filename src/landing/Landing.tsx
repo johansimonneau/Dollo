@@ -12,7 +12,7 @@ const PAINS: { kind: Kind; icon: (p: { size?: number }) => ReactNode; before: st
     kind: 'breast',
     icon: Icon.Breast,
     before: '« C’était quel sein, déjà ? »',
-    after: 'Dollo propose le prochain sein, lance le chrono et change de côté en un tap.',
+    after: 'Dollo propose le prochain sein, lance le chrono et change de côté d’un geste.',
   },
   {
     kind: 'bottle',
@@ -47,13 +47,13 @@ const PAINS: { kind: Kind; icon: (p: { size?: number }) => ReactNode; before: st
 ];
 
 const STEPS = [
-  { title: 'Installe en 10 secondes', text: 'Pas de store, pas de mise à jour à subir. Un lien, un tap : l’icône est sur ton écran d’accueil.' },
-  { title: 'Note en un tap', text: 'Sein gauche, sein droit, biberon, couche, dodo. Tu as oublié ? Règle l’heure après coup.' },
+  { title: 'Installe en 10 secondes', text: 'Pas de store, pas de mise à jour à subir. Un lien, et l’icône Dollo est sur ton écran d’accueil.' },
+  { title: 'Note d’un geste', text: 'Sein gauche, sein droit, biberon, couche, dodo. Tu as oublié ? Règle l’heure après coup.' },
   { title: 'Partage avec l’autre parent', text: 'Invite-le par e-mail : il voit la journée en direct, et vous arrêtez de vous demander qui a fait quoi.' },
 ];
 
 const SHOTS = [
-  { src: '/landing/today.jpg', title: 'En un tap', text: 'Chrono de tétée, sein suivant suggéré, tout au pouce.', alt: 'Écran Aujourd’hui : chrono de tétée en cours et boutons Sein gauche, Sein droit, Biberon, Couche, Dodo' },
+  { src: '/landing/today.jpg', title: 'Tout au pouce', text: 'Chrono de tétée, sein suivant suggéré, gros boutons.', alt: 'Écran Aujourd’hui : chrono de tétée en cours et boutons Sein gauche, Sein droit, Biberon, Couche, Dodo' },
   { src: '/landing/journal.jpg', title: 'Retrouve tout', text: 'Filtre par type, total du jour, quantités bues.', alt: 'Journal filtré sur les biberons, regroupés par jour avec le total de millilitres bus' },
   { src: '/landing/stats.jpg', title: 'Les tendances', text: 'Sommeil, repas, couches : 7 jours d’un coup d’œil.', alt: 'Statistiques sur 7 jours : heures de sommeil, tétées et biberons, couches' },
   { src: '/landing/night.jpg', title: 'Pensé pour la nuit', text: 'Mode sombre automatique. Pas d’éblouissement.', alt: 'Écran Aujourd’hui en mode sombre' },
@@ -161,13 +161,13 @@ export default function Landing() {
         <section className="lp-hero">
           <div className="lp-wrap lp-hero-grid">
             <div className="lp-hero-copy">
-              <p className="lp-eyebrow">Pensé pour les 3 h du matin</p>
+              <p className="lp-eyebrow">Le suivi de bébé pour parents épuisés</p>
               <h1>
-                Tétées, couches, siestes. <span className="lp-grad">En un tap.</span>
+                Tu n’as plus à tout retenir. <span className="lp-grad">Dollo s’en souvient.</span>
               </h1>
               <p className="lp-lead">
-                Le journal de bébé pour parents épuisés. Tu notes d’une main, l’autre parent voit tout en direct. Fini les Post-it et les « t’as donné
-                quoi, à quelle heure ? ».
+                Dollo note les tétées, biberons, couches et siestes de bébé. Tu appuies sur un bouton, c’est enregistré, et l’autre parent le voit en
+                direct. Fini les « t’as donné quoi, à quelle heure ? ».
               </p>
               <div className="lp-cta" ref={heroCta}>
                 {installed ? (
