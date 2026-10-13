@@ -126,3 +126,14 @@ Projet Vite standard : sur Vercel, framework *Vite*, commande `npm run build`, d
 **À construire** : migration (rôle + policies par rôle + exposition minimale du bébé), invitation avec rôle (même mécanisme que l'invitation parent), « mode nounou » (Aujourd'hui + journal du jour uniquement), mention « ajouté par la nounou » côté parents (`created_by` est déjà enregistré), révocation en un tap et date de fin d'accès.
 
 **À trancher avant de construire** : la nounou peut-elle écrire, ou seulement lire ? Quelle fenêtre d'historique ? Plusieurs nounous / garde partagée ? Accès permanent ou limité dans le temps ? Notes privées ?
+
+---
+
+## Page de présentation
+
+À l'adresse racine, un **nouveau visiteur** voit une page de présentation (problèmes de parents, captures réelles, installation sans store). Tout usage existant ouvre l'app directement : app installée sur l'écran d'accueil, `?app`, retour d'un lien de connexion Supabase, données ou session déjà présentes sur l'appareil (`src/landing/route.ts`).
+
+- `/?app` : ouvrir l'app (bouton « Essayer dans le navigateur »).
+- `/?landing` : forcer la page de présentation, même si on a déjà l'app.
+- **Installation sans store** : bouton natif « Installer » sur Android et ordinateur (événement `beforeinstallprompt`), pas-à-pas sur iPhone (Safari → Partager → Sur l'écran d'accueil).
+- Les captures sont dans `public/landing/` : des captures réelles de l'app avec un bébé de démonstration, à régénérer quand l'interface change.
