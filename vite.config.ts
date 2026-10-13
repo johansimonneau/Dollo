@@ -26,12 +26,35 @@ function assertPublicKey(key: string) {
   }
 }
 
+/**
+ * Ne garde que la RACINE de l'adresse Supabase (`https://xxxx.supabase.co`). Une valeur copiée depuis la mauvaise page
+ * (`…/rest/v1/`), avec un `/` final, des espaces ou des guillemets donnerait des appels vers `/rest/v1/auth/v1/…`
+ * et l'erreur « Invalid path specified in request URL ».
+ */
+function normalizeSupabaseUrl(raw: string): string {
+  const cleaned = raw.trim().replace(/^["']+|["']+$/g, '').trim();
+  if (!cleaned) return '';
+  let origin: string;
+  try {
+    origin = new URL(cleaned).origin;
+  } catch {
+    throw new Error(`SUPABASE_URL n'est pas une adresse valide : « ${raw} ». Attendu : https://xxxx.supabase.co`);
+  }
+  if (origin !== cleaned) {
+    console.warn(`[dollo] SUPABASE_URL corrigée : « ${raw} » → « ${origin} » (seule la racine est utilisée).`);
+  }
+  return origin;
+}
+
+/** Retire espaces, retours à la ligne et guillemets parasites collés avec la clé. */
+const cleanKey = (raw: string) => raw.trim().replace(/^["']+|["']+$/g, '').trim();
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   // On n'expose explicitement que l'URL et l'anon key (publiques par conception).
   // Surtout pas de `envPrefix: ['SUPABASE_']` : cela fuiterait une éventuelle service_role key dans le bundle.
   const pick = (...keys: string[]) => keys.map((k) => env[k]).find(Boolean) ?? '';
-  const publicKey = pick('VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY', 'VITE_SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_PUBLISHABLE_KEY');
+  const publicKey = cleanKey(pick('VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY', 'VITE_SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_PUBLISHABLE_KEY'));
   assertPublicKey(publicKey);
 
   return {
@@ -61,7 +84,7 @@ export default defineConfig(({ mode }) => {
       }),
     ],
     define: {
-      __SUPABASE_URL__: JSON.stringify(pick('VITE_SUPABASE_URL', 'SUPABASE_URL')),
+      __SUPABASE_URL__: JSON.stringify(normalizeSupabaseUrl(pick('VITE_SUPABASE_URL', 'SUPABASE_URL'))),
       __SUPABASE_ANON_KEY__: JSON.stringify(publicKey),
     },
     test: { environment: 'node', include: ['src/**/*.test.ts'], setupFiles: ['src/test-setup.ts'] },
