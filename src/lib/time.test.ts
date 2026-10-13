@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { babyAge, dayBounds, dayKey, fmtDuration, fmtTimer, fromLocalInput, shiftDay, timeAgo, toLocalInput } from './time';
-import { eventsToCsv } from './labels';
+import { eventsToCsv, summaryText } from './labels';
+import type { Summary } from './summary';
 import { emptyEvent } from './types';
 
 describe('fmtDuration', () => {
@@ -78,6 +79,25 @@ describe('eventsToCsv', () => {
     const csv = eventsToCsv([e]);
     const lines = csv.split('\r\n');
     expect(csv.startsWith('﻿Date;')).toBe(true);
-    expect(lines[1]).toBe('2026-10-13;09h30;;;Biberon;90 ml;"a bien ""bu""; rot ok"');
+    expect(lines[0]).toBe('\uFEFFDate;Début;Fin;Durée (min);Type;Détail;Quantité bue (ml);Note'); // BOM : accents corrects dans Excel
+    // la quantité bue est une vraie colonne numérique (exploitable dans Excel)
+    expect(lines[1]).toBe('2026-10-13;09h30;;;Biberon;;90;"a bien ""bu""; rot ok"');
+  });
+});
+
+describe('summaryText', () => {
+  const base: Summary = { breastCount: 0, breastMs: 0, bottleCount: 0, bottleMl: 0, diaperCount: 0, pee: 0, poop: 0, sleepMs: 0, sleepCount: 0 };
+
+  it('exprime la quantité de biberon en ml BUS', () => {
+    expect(summaryText('bottle', { ...base, bottleCount: 2, bottleMl: 180 })).toBe('2 biberons · 180\u00a0ml\u00a0bus');
+    expect(summaryText('bottle', { ...base, bottleCount: 1, bottleMl: 90 })).toBe('1 biberon · 90\u00a0ml\u00a0bus');
+    expect(summaryText('bottle', { ...base, bottleCount: 13, bottleMl: 1150 })).toBe('13 biberons · 1\u202f150\u00a0ml\u00a0bus');
+  });
+
+  it('n\'affiche pas de quantité quand elle est inconnue, et accorde le pluriel', () => {
+    expect(summaryText('bottle', { ...base, bottleCount: 1 })).toBe('1 biberon');
+    expect(summaryText('breast', { ...base, breastCount: 0 })).toBe('0 tétée');
+    expect(summaryText('diaper', { ...base, diaperCount: 3 })).toBe('3 couches');
+    expect(summaryText('sleep', base)).toBe('0 min de sommeil');
   });
 });

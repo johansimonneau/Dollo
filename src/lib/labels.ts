@@ -1,5 +1,6 @@
 import type { BabyEvent, DiaperType, EventKind } from './types';
-import { fmtClock } from './time';
+import type { Summary } from './summary';
+import { fmtClock, fmtDuration } from './time';
 
 export const KIND_LABEL: Record<EventKind, string> = {
   breast: 'Tétée',
@@ -13,6 +14,25 @@ export const DIAPER_LABEL: Record<DiaperType, string> = {
   poop: 'Caca',
   both: 'Pipi + caca',
 };
+
+/** « 1 150 ml » : séparateur de milliers français, espaces insécables. */
+export const fmtMl = (ml: number) => `${ml.toLocaleString('fr-FR')}\u00a0ml`;
+
+const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
+
+/** Résumé d'un type d'événement : « 2 biberons · 180 ml bus ». La quantité d'un biberon est toujours la quantité bue. */
+export function summaryText(kind: EventKind, s: Summary): string {
+  switch (kind) {
+    case 'breast':
+      return plural(s.breastCount, 'tétée');
+    case 'bottle':
+      return plural(s.bottleCount, 'biberon') + (s.bottleMl > 0 ? ` · ${fmtMl(s.bottleMl)}\u00a0bus` : '');
+    case 'diaper':
+      return plural(s.diaperCount, 'couche');
+    case 'sleep':
+      return `${s.sleepMs > 0 ? fmtDuration(s.sleepMs) : '0 min'} de sommeil`;
+  }
+}
 
 export const SIDE_LABEL = { left: 'Sein gauche', right: 'Sein droit' } as const;
 
@@ -37,7 +57,7 @@ const csvCell = (v: string | number | null): string => {
 
 /** Export CSV (séparateur « ; », BOM UTF-8) à montrer au pédiatre ou à ouvrir dans Excel. */
 export function eventsToCsv(events: BabyEvent[]): string {
-  const header = ['Date', 'Début', 'Fin', 'Durée (min)', 'Type', 'Détail', 'Note'];
+  const header = ['Date', 'Début', 'Fin', 'Durée (min)', 'Type', 'Détail', 'Quantité bue (ml)', 'Note'];
   const rows = [...events]
     .sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime())
     .map((e) => {
@@ -49,16 +69,12 @@ export function eventsToCsv(events: BabyEvent[]): string {
           ? e.side
             ? SIDE_LABEL[e.side]
             : ''
-          : e.kind === 'bottle'
-            ? e.amountMl
-              ? `${e.amountMl} ml`
+          : e.kind === 'diaper'
+            ? e.diaperType
+              ? DIAPER_LABEL[e.diaperType]
               : ''
-            : e.kind === 'diaper'
-              ? e.diaperType
-                ? DIAPER_LABEL[e.diaperType]
-                : ''
-              : '';
-      return [date, fmtClock(e.startedAt), e.endedAt ? fmtClock(e.endedAt) : '', minutes, KIND_LABEL[e.kind], detail, e.note]
+            : '';
+      return [date, fmtClock(e.startedAt), e.endedAt ? fmtClock(e.endedAt) : '', minutes, KIND_LABEL[e.kind], detail, e.kind === 'bottle' ? e.amountMl : null, e.note]
         .map(csvCell)
         .join(';');
     });

@@ -172,7 +172,7 @@ export function EventSheet({ event, onSave, onDelete, onClose }: Props) {
 
         {kind === 'bottle' && (
           <label className="field">
-            <span className="label">Quantité (ml)</span>
+            <span className="label">Quantité bue (ml)</span>
             <input
               className="input"
               inputMode="numeric"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dailySeries, lastOf, ongoing, suggestNextSide, summarizeDay } from './summary';
+import { dailySeries, groupByDay, lastOf, ongoing, suggestNextSide, summarizeDay } from './summary';
 import { emptyEvent, type BabyEvent } from './types';
 import { HOUR, MINUTE } from './time';
 
@@ -100,5 +100,23 @@ describe('dailySeries', () => {
     expect(series).toHaveLength(7);
     expect(series[0].key).toBe('2026-10-07');
     expect(series[6].key).toBe('2026-10-13');
+  });
+});
+
+describe('groupByDay', () => {
+  it('regroupe par jour local en gardant l\'ordre du plus récent au plus ancien', () => {
+    const events = [
+      ev({ kind: 'bottle', startedAt: at(13, 18), amountMl: 90 }),
+      ev({ kind: 'bottle', startedAt: at(13, 9), amountMl: 60 }),
+      ev({ kind: 'bottle', startedAt: at(12, 23, 30), amountMl: 120 }), // 23h30 appartient au 12
+      ev({ kind: 'bottle', startedAt: at(11, 7), amountMl: 100 }),
+    ];
+    const groups = groupByDay(events);
+    expect(groups.map((g) => g.key)).toEqual(['2026-10-13', '2026-10-12', '2026-10-11']);
+    expect(groups.map((g) => g.events.length)).toEqual([2, 1, 1]);
+  });
+
+  it('renvoie une liste vide sans événement', () => {
+    expect(groupByDay([])).toEqual([]);
   });
 });
