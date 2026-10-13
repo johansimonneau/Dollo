@@ -21,6 +21,7 @@ export interface BabyEvent {
   /** ISO 8601, ou null tant que la tétée / le sommeil est en cours. */
   endedAt: string | null;
   side: BreastSide | null;
+  /** Biberon : quantité réellement BUE par bébé (pas la quantité préparée). */
   amountMl: number | null;
   diaperType: DiaperType | null;
   note: string | null;

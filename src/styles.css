@@ -229,9 +229,22 @@ ul { list-style: none; margin: 0; padding: 0; }
 
 /* ───────── Journal ───────── */
 .day-nav { display: flex; align-items: center; justify-content: space-between; }
-.day-label { font-size: 1.15rem; font-weight: 700; text-transform: capitalize; }
-.day-summary { display: flex; flex-wrap: wrap; gap: 6px; }
-.pill { padding: 4px 12px; border-radius: 99px; font-size: 0.82rem; font-weight: 650; background: var(--k-bg); color: var(--k); }
+.day-label { font-size: 1.15rem; font-weight: 700; }
+.day-label::first-letter, .group-head > span:first-child::first-letter, .sheet-header h2::first-letter { text-transform: uppercase; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill {
+  min-height: 40px; padding: 0 14px; border-radius: 99px; border: 2px solid transparent;
+  font-size: 0.88rem; font-weight: 650; background: var(--k-bg); color: var(--k);
+}
+.pill[aria-pressed='true'] { background: var(--k); color: var(--surface); }
+.filter-hint { margin: -10px 0 0; }
+.filter-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+.filter-banner p { display: flex; flex-direction: column; line-height: 1.25; }
+.filter-banner small { color: var(--muted); font-size: 0.82rem; }
+.filter-banner .link-btn { white-space: nowrap; }
+.day-groups { display: flex; flex-direction: column; gap: 20px; }
+.group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 8px; font-size: 0.95rem; }
+.group-total { font-size: 0.82rem; font-weight: 600; color: var(--muted); text-align: right; }
 .event-list { display: flex; flex-direction: column; gap: 8px; }
 .event-row {
   width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; padding: 10px 14px; min-height: 64px;
@@ -288,7 +301,7 @@ ul { list-style: none; margin: 0; padding: 0; }
 }
 .sheet-handle { width: 40px; height: 5px; border-radius: 3px; background: var(--border); margin: 4px auto 8px; }
 .sheet-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.sheet-header h2 { font-size: 1.25rem; text-transform: capitalize; }
+.sheet-header h2 { font-size: 1.25rem; }
 .sheet-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
 @keyframes fade { from { opacity: 0; } }
 @keyframes rise { from { transform: translateY(24px); opacity: 0.6; } }

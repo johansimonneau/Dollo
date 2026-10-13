@@ -104,3 +104,15 @@ export function dailySeries(events: BabyEvent[], days: number, nowMs: number): {
   }
   return out;
 }
+
+/** Regroupe des événements déjà triés (du plus récent au plus ancien) par jour de début, en gardant l'ordre. */
+export function groupByDay(events: BabyEvent[]): { key: string; events: BabyEvent[] }[] {
+  const groups: { key: string; events: BabyEvent[] }[] = [];
+  for (const e of events) {
+    const key = dayKey(e.startedAt);
+    const last = groups[groups.length - 1];
+    if (last && last.key === key) last.events.push(e);
+    else groups.push({ key, events: [e] });
+  }
+  return groups;
+}

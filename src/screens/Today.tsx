@@ -1,5 +1,5 @@
 import { Icon } from '../components/icons';
-import { eventTitle, SIDE_LABEL } from '../lib/labels';
+import { eventTitle, fmtMl, SIDE_LABEL } from '../lib/labels';
 import { summarize, lastOf, ongoing, suggestNextSide } from '../lib/summary';
 import { DAY, MINUTE, fmtClock, fmtDuration, fmtTimer, timeAgo } from '../lib/time';
 import type { BabyEvent, BreastSide, EventKind } from '../lib/types';
@@ -106,7 +106,7 @@ export function Today({ events, now, actions }: Props) {
             kind="bottle"
             label="Biberons"
             value={String(day.bottleCount)}
-            detail={day.bottleMl > 0 ? `${day.bottleMl} ml` : '—'}
+            detail={day.bottleMl > 0 ? `${fmtMl(day.bottleMl)}\u00a0bus` : '—'}
           />
           <Tile kind="diaper" label="Couches" value={String(day.diaperCount)} detail={`${day.pee} pipi · ${day.poop} caca`} />
           <Tile kind="sleep" label="Sommeil" value={day.sleepMs > 0 ? fmtDuration(day.sleepMs) : '—'} detail={`${day.sleepCount} sieste(s)/nuit(s)`} />

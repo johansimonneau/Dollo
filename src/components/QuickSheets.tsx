@@ -61,7 +61,8 @@ export function BottleSheet({ defaultMl, onSave, onClose }: BottleProps) {
     <Sheet title="Biberon" onClose={onClose}>
       <TimeChips value={when} onChange={setWhen} />
       <div className="field">
-        <span className="label">Quantité</span>
+        <span className="label">Quantité bue</span>
+        <span className="hint">Ce que bébé a réellement bu, pas ce qui était préparé.</span>
         <div className="stepper">
           <button type="button" className="icon-btn big" aria-label="Moins 10 ml" onClick={() => setMl((v) => clamp(v - 10))}>
             −
