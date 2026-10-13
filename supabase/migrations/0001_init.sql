@@ -154,10 +154,18 @@ begin
 end;
 $$;
 
+-- Droits d'exécution. Supabase accorde par défaut EXECUTE à anon / authenticated sur toute nouvelle fonction du
+-- schéma public, ce qui l'expose dans l'API (/rest/v1/rpc/...). On ne laisse que ce qui est voulu.
 revoke all on function public.join_baby(text) from public, anon;
 revoke all on function public.regenerate_invite_code(uuid) from public, anon;
 grant execute on function public.join_baby(text) to authenticated;
 grant execute on function public.regenerate_invite_code(uuid) to authenticated;
+-- Évaluée par les policies RLS avec les droits de l'appelant : « authenticated » en a besoin, pas « anon ».
+revoke all on function public.is_baby_member(uuid) from public, anon;
+grant execute on function public.is_baby_member(uuid) to authenticated;
+-- Fonctions de trigger : déclenchées par la base, jamais appelées via l'API.
+revoke all on function public.add_creator_as_owner() from public, anon, authenticated;
+revoke all on function public.touch_updated_at() from public, anon, authenticated;
 
 ------------------------------------------------------------------------------
 -- Row Level Security

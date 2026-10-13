@@ -91,6 +91,14 @@ select test_as(null);
 select expect_error('anon ne lit pas les bébés', 'select count(*) from babies', 'permission denied');
 select expect_error('anon ne lit pas les événements', 'select count(*) from events', 'permission denied');
 select expect_error('anon ne peut pas appeler join_baby', format($q$select join_baby(%L)$q$, :'newcode'), 'permission denied');
+select expect_error('anon ne peut pas appeler is_baby_member via l''API', format($q$select is_baby_member(%L)$q$, :'baby_id'), 'permission denied');
+select expect_error('anon ne peut pas appeler la fonction de trigger', 'select add_creator_as_owner()', 'permission denied');
+select expect_error('anon ne peut pas appeler touch_updated_at', 'select touch_updated_at()', 'permission denied');
+select test_as(:'bob');
+select expect_error('un utilisateur connecté ne peut pas appeler la fonction de trigger', 'select add_creator_as_owner()', 'permission denied');
+select expect_error('un utilisateur connecté ne peut pas appeler touch_updated_at', 'select touch_updated_at()', 'permission denied');
+select expect_count('mais is_baby_member reste utilisable (RLS) par un utilisateur connecté', format($q$select count(*) from (select is_baby_member(%L)) t$q$, :'baby_id'), 1);
+select test_as(null);
 
 -- 10. Suppression du bébé par Alice (owner) : cascade sur les événements et membres
 select test_as(:'alice');
