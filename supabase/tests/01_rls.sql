@@ -3,35 +3,6 @@
 \set bob   '00000000-0000-0000-0000-00000000000b'
 \set carol '00000000-0000-0000-0000-00000000000c'
 
-create function test_as(uid uuid) returns void language plpgsql as $$
-begin
-  perform set_config('request.jwt.claim.sub', coalesce(uid::text, ''), true);
-  if uid is null then execute 'set local role anon'; else execute 'set local role authenticated'; end if;
-end $$;
-
--- Exécute `sql`, exige une erreur dont le message contient `expect`.
-create function expect_error(label text, sql text, expect text) returns void language plpgsql as $$
-begin
-  begin
-    execute sql;
-  exception when others then
-    if sqlerrm ilike '%' || expect || '%' then
-      raise notice 'PASS  % -> %', label, sqlerrm; return;
-    end if;
-    raise exception 'FAIL  %: erreur inattendue "%" (attendu "%")', label, sqlerrm, expect;
-  end;
-  raise exception 'FAIL  %: aucune erreur (attendu "%")', label, expect;
-end $$;
-
--- Exige que `sql` (un SELECT count(*)) renvoie n.
-create function expect_count(label text, sql text, n bigint) returns void language plpgsql as $$
-declare got bigint;
-begin
-  execute sql into got;
-  if got is distinct from n then raise exception 'FAIL  %: % ligne(s), attendu %', label, got, n; end if;
-  raise notice 'PASS  % (=%)', label, got;
-end $$;
-
 begin;
 
 -- 1. Alice crée un bébé (insert ... returning) : le trigger la fait « owner »
@@ -120,6 +91,14 @@ select test_as(null);
 select expect_error('anon ne lit pas les bébés', 'select count(*) from babies', 'permission denied');
 select expect_error('anon ne lit pas les événements', 'select count(*) from events', 'permission denied');
 select expect_error('anon ne peut pas appeler join_baby', format($q$select join_baby(%L)$q$, :'newcode'), 'permission denied');
+select expect_error('anon ne peut pas appeler is_baby_member via l''API', format($q$select is_baby_member(%L)$q$, :'baby_id'), 'permission denied');
+select expect_error('anon ne peut pas appeler la fonction de trigger', 'select add_creator_as_owner()', 'permission denied');
+select expect_error('anon ne peut pas appeler touch_updated_at', 'select touch_updated_at()', 'permission denied');
+select test_as(:'bob');
+select expect_error('un utilisateur connecté ne peut pas appeler la fonction de trigger', 'select add_creator_as_owner()', 'permission denied');
+select expect_error('un utilisateur connecté ne peut pas appeler touch_updated_at', 'select touch_updated_at()', 'permission denied');
+select expect_count('mais is_baby_member reste utilisable (RLS) par un utilisateur connecté', format($q$select count(*) from (select is_baby_member(%L)) t$q$, :'baby_id'), 1);
+select test_as(null);
 
 -- 10. Suppression du bébé par Alice (owner) : cascade sur les événements et membres
 select test_as(:'alice');

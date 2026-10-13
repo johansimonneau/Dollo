@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useToast } from './components/toast';
 import { errorMessage, type Store } from './data/store';
 import type { Baby } from './lib/types';
 import { Shell } from './Shell';
@@ -25,24 +26,37 @@ export function BabyGate({ store, email, onSignOut }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(readSelected);
   const [adding, setAdding] = useState(false);
 
-  const load = useCallback(() => {
-    setError(null);
-    store
-      .listBabies()
-      .then(setBabies)
-      .catch((e) => setError(errorMessage(e)));
-  }, [store]);
+  const toast = useToast();
 
-  useEffect(load, [load]);
-
-  const select = (id: string) => {
+  const select = useCallback((id: string) => {
     setSelectedId(id);
     try {
       localStorage.setItem(BABY_KEY, id);
     } catch {
       /* préférence non vitale */
     }
-  };
+  }, []);
+
+  const load = useCallback(() => {
+    setError(null);
+    void (async () => {
+      // Un parent invité par e-mail retrouve le bébé dès sa connexion. Un échec ici (migration 0002 non appliquée,
+      // réseau) ne doit jamais empêcher d'afficher ses propres bébés.
+      let joined: Baby[] = [];
+      try {
+        joined = await store.acceptInvitations();
+      } catch (e) {
+        console.warn('Invitations non traitées :', errorMessage(e));
+      }
+      setBabies(await store.listBabies());
+      if (joined.length > 0) {
+        select(joined[0].id);
+        toast.show(`Vous avez rejoint le suivi de ${joined[0].name}.`, { durationMs: 8000 });
+      }
+    })().catch((e) => setError(errorMessage(e)));
+  }, [store, select, toast]);
+
+  useEffect(load, [load]);
 
   if (error) {
     return (

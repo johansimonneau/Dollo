@@ -64,6 +64,22 @@ export function createLocalStore(): Store {
       throw new StoreError('Le partage entre parents nécessite la synchronisation en ligne (Supabase).');
     },
 
+    async listInvitations() {
+      return [];
+    },
+
+    async inviteParent() {
+      throw new StoreError("L'invitation par e-mail nécessite la synchronisation en ligne (Supabase).");
+    },
+
+    async cancelInvitation() {
+      /* aucune invitation en mode local */
+    },
+
+    async acceptInvitations() {
+      return [];
+    },
+
     async listEvents(babyId, sinceIso) {
       const since = new Date(sinceIso).getTime();
       return read().events.filter((e) => e.babyId === babyId && new Date(e.startedAt).getTime() >= since);

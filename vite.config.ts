@@ -3,11 +3,36 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+/**
+ * Garde-fou : la valeur injectée dans le bundle est lisible par tous les visiteurs. Si on y colle par erreur la clé
+ * SECRÈTE (`sb_secret_…` ou l'ancienne `service_role`, qui contourne toute la sécurité de la base), le build s'arrête.
+ */
+function assertPublicKey(key: string) {
+  if (!key) return;
+  let role: unknown;
+  if (key.startsWith('sb_secret_')) role = 'secret';
+  else if (key.split('.').length === 3) {
+    try {
+      role = (JSON.parse(Buffer.from(key.split('.')[1], 'base64url').toString('utf8')) as { role?: unknown }).role;
+    } catch {
+      /* pas un JWT lisible : on laisse passer, Supabase refusera une clé invalide */
+    }
+  }
+  if (role === 'secret' || role === 'service_role') {
+    throw new Error(
+      "SUPABASE_ANON_KEY contient une clé SECRÈTE (service_role / sb_secret_…). Elle serait publique dans l'application. " +
+        'Utilisez la clé publique : « anon » ou « publishable » (Supabase → Settings → API Keys).',
+    );
+  }
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   // On n'expose explicitement que l'URL et l'anon key (publiques par conception).
   // Surtout pas de `envPrefix: ['SUPABASE_']` : cela fuiterait une éventuelle service_role key dans le bundle.
   const pick = (...keys: string[]) => keys.map((k) => env[k]).find(Boolean) ?? '';
+  const publicKey = pick('VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY', 'VITE_SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_PUBLISHABLE_KEY');
+  assertPublicKey(publicKey);
 
   return {
     plugins: [
@@ -37,7 +62,7 @@ export default defineConfig(({ mode }) => {
     ],
     define: {
       __SUPABASE_URL__: JSON.stringify(pick('VITE_SUPABASE_URL', 'SUPABASE_URL')),
-      __SUPABASE_ANON_KEY__: JSON.stringify(pick('VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY')),
+      __SUPABASE_ANON_KEY__: JSON.stringify(publicKey),
     },
     test: { environment: 'node', include: ['src/**/*.test.ts'], setupFiles: ['src/test-setup.ts'] },
   };
