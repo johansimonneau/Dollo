@@ -14,14 +14,18 @@ interface Props {
   now: number;
   onEdit: (event: BabyEvent) => void;
   onAdd: () => void;
+  /** Jours consultables (la nounou n'a accès qu'aux dernières 48 h). */
+  historyDays?: number;
+  /** Auteurs « nounou », pour le signaler aux parents. */
+  nannyIds?: Set<string>;
 }
 
-export function Journal({ events, now, onEdit, onAdd }: Props) {
+export function Journal({ events, now, onEdit, onAdd, historyDays = HISTORY_DAYS, nannyIds }: Props) {
   const today = dayKey(now);
   const [key, setKey] = useState(today);
   // Types affichés ; vide = tout. Cumulable (ex. biberons + couches).
   const [filter, setFilter] = useState<EventKind[]>([]);
-  const oldest = shiftDay(today, -(HISTORY_DAYS - 1));
+  const oldest = shiftDay(today, -(historyDays - 1));
   const filtering = filter.length > 0;
   const activeKinds = KINDS.filter((k) => filter.includes(k));
 
@@ -41,7 +45,7 @@ export function Journal({ events, now, onEdit, onAdd }: Props) {
         <div className="filter-banner">
           <p>
             <strong>Tous les jours</strong>
-            <small>{HISTORY_DAYS} derniers jours</small>
+            <small>{historyDays === 2 ? 'Hier et aujourd’hui' : `${historyDays} derniers jours`}</small>
           </p>
           <button type="button" className="link-btn" onClick={() => setFilter([])}>
             Tout afficher
@@ -88,7 +92,7 @@ export function Journal({ events, now, onEdit, onAdd }: Props) {
                 </h3>
                 <ul className="event-list">
                   {g.events.map((e) => (
-                    <EventRow key={e.id} event={e} now={now} onClick={onEdit} />
+                    <EventRow key={e.id} event={e} now={now} onClick={onEdit} byNanny={!!e.createdBy && !!nannyIds?.has(e.createdBy)} />
                   ))}
                 </ul>
               </section>
@@ -98,7 +102,7 @@ export function Journal({ events, now, onEdit, onAdd }: Props) {
       ) : (
         <ul className="event-list">
           {items.map((e) => (
-            <EventRow key={e.id} event={e} now={now} onClick={onEdit} />
+            <EventRow key={e.id} event={e} now={now} onClick={onEdit} byNanny={!!e.createdBy && !!nannyIds?.has(e.createdBy)} />
           ))}
         </ul>
       )}

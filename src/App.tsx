@@ -38,6 +38,7 @@ export default function App() {
         key={session?.user.id ?? 'local'}
         store={store}
         email={session?.user.email ?? null}
+        userId={session?.user.id ?? null}
         onSignOut={client ? () => void client.auth.signOut() : null}
       />
     </ToastProvider>

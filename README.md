@@ -38,7 +38,7 @@ Sur [supabase.com](https://supabase.com) → *New project*. Choisissez une **ré
 > Utilisez un projet vierge, pas une base qui sert déjà à autre chose : la migration crée les tables `babies`, `baby_members`, `events` et `baby_invitations` dans le schéma `public`.
 
 ### 2. Créer les tables
-*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`.
+*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`, `0005_nanny.sql`.
 
 ### 3. Récupérer les deux clés publiques
 *Project Settings → API Keys* (ou *API*) :
@@ -97,14 +97,23 @@ Projet Vite standard : sur Vercel, framework *Vite*, commande `npm run build`, d
 
 ---
 
-## Feuille de route — V2 : partager avec la nounou
+## V2 : partager avec la nounou
 
-**But** : la nounou renseigne la journée (biberons, couches, siestes) et les parents la voient, **sans que la nounou accède aux données des parents**.
-
-**Principe** : un rôle `nanny` dans `baby_members`. La limite est posée **dans la base** (RLS), pas seulement dans l'interface : une nounou qui interroge l'API directement n'obtient rien de plus.
+La nounou renseigne la journée et les parents la voient en direct, **sans que la nounou accède aux données des parents**. La limite est posée **dans la base** (RLS, fonctions, trigger — migration `0005_nanny.sql`) : une nounou qui interroge l'API directement n'obtient rien de plus que dans l'app.
 
 | La nounou voit / peut | La nounou ne voit pas / ne peut pas |
 | --- | --- |
+| le prénom du bébé | la date de naissance, le code d'invitation, les autres bébés |
+| les événements des **dernières 48 h** | l'historique plus ancien, les stats, l'export |
+| ajouter des événements, corriger ou supprimer **les siens** | modifier ou supprimer ceux des parents |
+| **terminer** un dodo / une tétée lancé par un parent | — |
+| — | les membres, leurs e-mails, les invitations ; inviter quelqu'un |
+
+**Côté parents** : *Réglages → Partager le suivi → Nounou* pour l'inviter (même parcours que pour un parent : lien partagé, compte avec mot de passe). Ce qu'elle note est marqué « par la nounou » dans le journal. Le créateur du suivi la **retire** en un geste ; plusieurs nounous possibles.
+
+**Choix faits** (modifiables) : écriture autorisée ; fenêtre de 48 h ; accès jusqu'au retrait (pas de date de fin) ; les notes des événements visibles dans la fenêtre sont lisibles par la nounou.
+
+--- | --- |
 | le prénom du bébé | les autres bébés, la date de naissance, les stats longues, l'export |
 | les événements des dernières 24–48 h (fenêtre glissante) | l'historique ancien |
 | ajouter des événements, corriger **les siens** | modifier ceux des parents, supprimer |

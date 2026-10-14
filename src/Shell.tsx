@@ -1,4 +1,4 @@
-import { useState, type JSX } from 'react';
+import { useEffect, useState, type JSX } from 'react';
 import { EventSheet, type EventData } from './components/EventSheet';
 import { Icon } from './components/icons';
 import { BottleSheet, DiaperSheet } from './components/QuickSheets';
@@ -41,13 +41,34 @@ interface Props {
   babies: Baby[];
   baby: Baby;
   email: string | null;
+  userId: string | null;
   onSelectBaby: (id: string) => void;
   onBabyUpdated: (baby: Baby) => void;
   onAddBaby: () => void;
   onSignOut: (() => void) | null;
 }
 
-export function Shell({ store, babies, baby, email, onSelectBaby, onBabyUpdated, onAddBaby, onSignOut }: Props) {
+/** Ce que voit la nounou : les dernières 48 h (la base n'en renvoie pas plus). */
+const NANNY_DAYS = 2;
+
+export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBabyUpdated, onAddBaby, onSignOut }: Props) {
+  const nanny = baby.role === 'nanny';
+  const tabs = nanny ? TABS.filter((t) => t.id !== 'stats') : TABS;
+  // Côté parents : repérer ce qu'a noté la nounou (la liste des membres n'est lisible que par les parents).
+  const [nannyIds, setNannyIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (nanny || store.mode !== 'cloud') return;
+    let alive = true;
+    store
+      .listMembers(baby.id)
+      .then((members) => alive && setNannyIds(new Set(members.filter((m) => m.role === 'nanny').map((m) => m.userId))))
+      .catch(() => {
+        /* base pas encore migrée : pas de mention « nounou » */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [store, baby.id, nanny]);
   const toast = useToast();
   const { events, loading, error, reload, add, update, remove } = useEvents(store, baby.id);
   const [tab, setTab] = useState<Tab>('today');
@@ -160,7 +181,14 @@ export function Shell({ store, babies, baby, email, onSelectBaby, onBabyUpdated,
     toast.show('Événement supprimé.', { actionLabel: 'Annuler', onAction: () => guard(async () => void (await add(copy))) });
   };
 
-  const edit = (event: BabyEvent) => setSheet({ type: 'event', event });
+  const edit = (event: BabyEvent) => {
+    // La base l'interdit de toute façon : on l'explique plutôt que d'afficher une erreur à l'enregistrement.
+    if (nanny && event.createdBy && event.createdBy !== userId) {
+      toast.show('Seuls les parents peuvent modifier cet événement. Vous pouvez arrêter un dodo ou une tétée en cours.');
+      return;
+    }
+    setSheet({ type: 'event', event });
+  };
 
   return (
     <div className="app">
@@ -179,6 +207,7 @@ export function Shell({ store, babies, baby, email, onSelectBaby, onBabyUpdated,
           )}
           {age && <p className="baby-age">{age}</p>}
         </div>
+        {nanny && <span className="mode-chip">Nounou</span>}
         {store.mode === 'local' && (
           <span className="mode-chip" title="Les données restent sur cet appareil. Configurez Supabase pour synchroniser et partager.">
             Mode local
@@ -210,10 +239,20 @@ export function Shell({ store, babies, baby, email, onSelectBaby, onBabyUpdated,
             }}
           />
         )}
-        {tab === 'journal' && <Journal events={events} now={now} onEdit={edit} onAdd={() => setSheet({ type: 'event' })} />}
+        {tab === 'journal' && (
+          <Journal
+            events={events}
+            now={now}
+            onEdit={edit}
+            onAdd={() => setSheet({ type: 'event' })}
+            historyDays={nanny ? NANNY_DAYS : undefined}
+            nannyIds={nannyIds}
+          />
+        )}
         {tab === 'stats' && <Stats events={events} now={now} />}
         {tab === 'settings' && (
           <Settings
+            nanny={nanny}
             store={store}
             baby={baby}
             events={events}
@@ -227,7 +266,7 @@ export function Shell({ store, babies, baby, email, onSelectBaby, onBabyUpdated,
       </main>
 
       <nav className="tabbar" aria-label="Navigation principale">
-        {TABS.map(({ id, label, icon: I }) => (
+        {tabs.map(({ id, label, icon: I }) => (
           <button key={id} type="button" className="tab" aria-current={tab === id ? 'page' : undefined} onClick={() => setTab(id)}>
             <I size={24} />
             <span>{label}</span>

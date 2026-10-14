@@ -1,4 +1,4 @@
-import type { Baby, BabyEvent, Invitation, Member, NewEvent } from '../lib/types';
+import type { Baby, BabyEvent, Invitation, InviteRole, Member, NewEvent } from '../lib/types';
 
 export interface BabyInput {
   name: string;
@@ -25,7 +25,7 @@ export interface Store {
    * Enregistre l'invitation d'une adresse. Aucun e-mail n'est envoyé : l'app partage un lien, la personne crée son compte
    * (avec mot de passe) avec cette adresse et rejoint le bébé dès sa première connexion.
    */
-  inviteParent(babyId: string, email: string): Promise<Invitation>;
+  inviteParent(babyId: string, email: string, role?: InviteRole): Promise<Invitation>;
   cancelInvitation(id: string): Promise<void>;
   /** Personnes ayant accès au bébé (propriétaire en premier). */
   listMembers(babyId: string): Promise<Member[]>;

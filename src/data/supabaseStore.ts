@@ -1,13 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Baby, BabyEvent, BreastSide, DiaperType, EventKind, Invitation, Member, NewEvent } from '../lib/types';
+import type { Baby, BabyEvent, BreastSide, DiaperType, EventKind, Invitation, InviteRole, Member, NewEvent, Role } from '../lib/types';
 import { StoreError, type BabyInput, type Store } from './store';
 
 interface BabyRow {
   id: string;
   name: string;
-  birth_date: string | null;
-  invite_code: string;
-  created_at: string;
+  birth_date?: string | null;
+  invite_code?: string | null;
+  created_at?: string;
+  /** Renvoyé par list_my_babies() (migration 0005). */
+  role?: Role;
 }
 
 interface InvitationRow {
@@ -17,6 +19,7 @@ interface InvitationRow {
   created_at: string;
   expires_at: string;
   accepted_at: string | null;
+  role?: InviteRole;
 }
 
 interface EventRow {
@@ -29,14 +32,16 @@ interface EventRow {
   amount_ml: number | null;
   diaper_type: DiaperType | null;
   note: string | null;
+  created_by?: string | null;
 }
 
 const toBaby = (r: BabyRow): Baby => ({
   id: r.id,
   name: r.name,
-  birthDate: r.birth_date,
-  inviteCode: r.invite_code,
-  createdAt: r.created_at,
+  birthDate: r.birth_date ?? null,
+  inviteCode: r.invite_code ?? undefined,
+  createdAt: r.created_at ?? '',
+  role: r.role,
 });
 
 const toInvitation = (r: InvitationRow): Invitation => ({
@@ -46,6 +51,7 @@ const toInvitation = (r: InvitationRow): Invitation => ({
   createdAt: r.created_at,
   expiresAt: r.expires_at,
   acceptedAt: r.accepted_at,
+  role: r.role ?? 'parent',
 });
 
 const toEvent = (r: EventRow): BabyEvent => ({
@@ -58,6 +64,7 @@ const toEvent = (r: EventRow): BabyEvent => ({
   amountMl: r.amount_ml,
   diaperType: r.diaper_type,
   note: r.note,
+  createdBy: r.created_by ?? null,
 });
 
 /** Ne transmet que les champs présents dans le patch (un `null` explicite efface la valeur). */
@@ -81,6 +88,7 @@ const DB_MESSAGES: [string, string][] = [
   ['invalid_email', 'Adresse e-mail invalide.'],
   ['too_many_invitations', "Trop d'invitations en attente (5 maximum). Annulez-en une d'abord."],
   ['forbidden', "Vous n'avez pas le droit de faire cela."],
+  ['invalid_role', "Rôle d'invitation inconnu."],
   ['not_a_member', "Cette personne n'a pas (ou plus) accès à ce bébé."],
   // Migration oubliée : PostgREST ne trouve pas la fonction.
   ['could not find the function', "La base n'est pas à jour : appliquez les migrations Supabase (voir le README)."],
@@ -97,6 +105,11 @@ export function createSupabaseStore(client: SupabaseClient): Store {
     mode: 'cloud',
 
     async listBabies() {
+      // Avec la migration 0005 : les bébés ET le rôle (une nounou ne reçoit ni date de naissance ni code).
+      const mine = await client.rpc('list_my_babies');
+      if (!mine.error) return ((mine.data ?? []) as BabyRow[]).map(toBaby);
+      if (!mine.error.message.toLowerCase().includes('could not find the function')) fail(mine.error, 'Chargement impossible.');
+      // Base pas encore migrée : lecture directe, accès complet.
       const { data, error } = await client.from('babies').select('*').order('created_at');
       if (error) fail(error, 'Chargement impossible.');
       return (data as BabyRow[]).map(toBaby);
@@ -146,8 +159,10 @@ export function createSupabaseStore(client: SupabaseClient): Store {
       return (data as InvitationRow[]).map(toInvitation);
     },
 
-    async inviteParent(babyId, email) {
-      const { data, error } = await client.rpc('invite_parent', { p_baby_id: babyId, p_email: email });
+    async inviteParent(babyId, email, role = 'parent') {
+      // p_role n'est transmis que pour une nounou : une base sans la migration 0005 accepte toujours l'invitation parent.
+      const args = role === 'parent' ? { p_baby_id: babyId, p_email: email } : { p_baby_id: babyId, p_email: email, p_role: role };
+      const { data, error } = await client.rpc('invite_parent', args);
       if (error) fail(error, "Invitation impossible.");
       return toInvitation(data as InvitationRow);
     },

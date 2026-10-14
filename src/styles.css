@@ -337,3 +337,5 @@ ul { list-style: none; margin: 0; padding: 0; }
 .toast-action { background: none; border: 0; color: #9fe3d8; font-weight: 750; min-height: 44px; padding: 0 6px; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.85rem; }
 .toast-error .toast-action { color: #ffd2cc; }
 @media (prefers-color-scheme: dark) { .toast { background: #eaf0ee; color: #14181b; } .toast-action { color: #1f6b62; } .toast-error { background: #ffb4a9; color: #3a0d08; } .toast-error .toast-action { color: #5a150d; } }
+.invite-role { margin-bottom: 10px; }
+.by-nanny { color: var(--sleep-fg); font-weight: 650; }

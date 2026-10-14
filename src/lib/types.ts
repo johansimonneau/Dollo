@@ -2,6 +2,10 @@ export type EventKind = 'breast' | 'bottle' | 'diaper' | 'sleep';
 export type BreastSide = 'left' | 'right';
 export type DiaperType = 'pee' | 'poop' | 'both';
 
+/** Rôle sur un bébé : « owner » a créé le suivi ; la nounou n'a qu'un accès restreint (voir migration 0005). */
+export type Role = 'owner' | 'parent' | 'nanny';
+export type InviteRole = 'parent' | 'nanny';
+
 export interface Baby {
   id: string;
   name: string;
@@ -10,6 +14,8 @@ export interface Baby {
   /** Code à partager avec l'autre parent (mode cloud uniquement). */
   inviteCode?: string;
   createdAt: string;
+  /** Rôle de l'utilisateur connecté (mode cloud). Absent = accès complet. */
+  role?: Role;
 }
 
 /** Personne ayant accès au suivi d'un bébé. */
@@ -17,7 +23,7 @@ export interface Member {
   userId: string;
   email: string;
   /** « owner » : a créé le suivi, peut retirer les autres. */
-  role: 'owner' | 'parent';
+  role: Role;
   joinedAt: string;
 }
 
@@ -30,6 +36,7 @@ export interface Invitation {
   expiresAt: string;
   /** Renseigné quand la personne a rejoint le bébé. */
   acceptedAt: string | null;
+  role: InviteRole;
 }
 
 export interface BabyEvent {
@@ -45,6 +52,8 @@ export interface BabyEvent {
   amountMl: number | null;
   diaperType: DiaperType | null;
   note: string | null;
+  /** Auteur (mode cloud). Rempli par la base, jamais envoyé par l'app. */
+  createdBy?: string | null;
 }
 
 export type NewEvent = Omit<BabyEvent, 'id'>;

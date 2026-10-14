@@ -8,6 +8,8 @@ import { babyAge, dayKey } from '../lib/time';
 import type { Baby, BabyEvent } from '../lib/types';
 
 interface Props {
+  /** Accès nounou : ni profil, ni partage, ni export. */
+  nanny?: boolean;
   store: Store;
   baby: Baby;
   events: BabyEvent[];
@@ -21,7 +23,7 @@ interface Props {
 /** AB12CD34EF → AB12C-D34EF, plus lisible à dicter. */
 const prettyCode = (code: string) => (code.length === 10 ? `${code.slice(0, 5)}-${code.slice(5)}` : code);
 
-export function Settings({ store, baby, events, email, now, onBabyUpdated, onAddBaby, onSignOut }: Props) {
+export function Settings({ nanny = false, store, baby, events, email, now, onBabyUpdated, onAddBaby, onSignOut }: Props) {
   const toast = useToast();
   const [name, setName] = useState(baby.name);
   const [birthDate, setBirthDate] = useState(baby.birthDate ?? '');
@@ -95,6 +97,45 @@ export function Settings({ store, baby, events, email, now, onBabyUpdated, onAdd
 
   const age = babyAge(baby.birthDate, now);
 
+  // Installation et compte : communs aux parents et à la nounou.
+  const common = (
+    <>
+      <section className="card pad" aria-label="Installer l'application">
+        <h2 className="section-title flush">Installer sur l'écran d'accueil</h2>
+        <p className="hint">
+          <strong>iPhone</strong> : Safari → bouton Partager → « Sur l'écran d'accueil ». <strong>Android</strong> : menu ⋮ de Chrome →
+          « Installer l'application ». Dollo s'ouvre alors en plein écran, comme une vraie app.
+        </p>
+      </section>
+
+      {onSignOut && (
+        <section className="card pad" aria-label="Compte">
+          <h2 className="section-title flush">Compte</h2>
+          {email && <p className="hint">Connecté en tant que {email}</p>}
+          <button type="button" className="btn ghost danger" onClick={onSignOut}>
+            Se déconnecter
+          </button>
+        </section>
+      )}
+    </>
+  );
+
+  if (nanny) {
+    return (
+      <div className="screen">
+        <section className="card pad" aria-label="Accès nounou">
+          <h2 className="section-title flush">Accès nounou</h2>
+          <p className="hint">
+            Vous suivez <strong>{baby.name}</strong> en tant que nounou : vous voyez et notez les dernières 48 h (tétées, biberons, couches,
+            dodos). Les parents voient tout ce que vous enregistrez ; vous ne voyez pas leurs informations personnelles.
+          </p>
+        </section>
+        {common}
+      </div>
+    );
+  }
+
+
   return (
     <div className="screen">
       <section className="card pad" aria-label="Profil de bébé">
@@ -118,7 +159,7 @@ export function Settings({ store, baby, events, email, now, onBabyUpdated, onAdd
       </section>
 
       <section className="card pad" aria-label="Partage entre parents">
-        <h2 className="section-title flush">Partager avec l'autre parent</h2>
+        <h2 className="section-title flush">Partager le suivi</h2>
         {store.mode === 'cloud' ? (
           <>
             <Members store={store} baby={baby} myEmail={email} onBabyChanged={() => void refreshBaby()} />
@@ -158,23 +199,7 @@ export function Settings({ store, baby, events, email, now, onBabyUpdated, onAdd
         </button>
       </section>
 
-      <section className="card pad" aria-label="Installer l'application">
-        <h2 className="section-title flush">Installer sur l'écran d'accueil</h2>
-        <p className="hint">
-          <strong>iPhone</strong> : Safari → bouton Partager → « Sur l'écran d'accueil ». <strong>Android</strong> : menu ⋮ de Chrome →
-          « Installer l'application ». Dollo s'ouvre alors en plein écran, comme une vraie app.
-        </p>
-      </section>
-
-      {onSignOut && (
-        <section className="card pad" aria-label="Compte">
-          <h2 className="section-title flush">Compte</h2>
-          {email && <p className="hint">Connecté en tant que {email}</p>}
-          <button type="button" className="btn ghost danger" onClick={onSignOut}>
-            Se déconnecter
-          </button>
-        </section>
-      )}
+      {common}
     </div>
   );
 }

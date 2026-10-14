@@ -60,6 +60,7 @@ describe('supabaseStore', () => {
       amountMl: null,
       diaperType: null,
       note: null,
+      createdBy: null,
     });
   });
 
@@ -120,6 +121,13 @@ describe('supabaseStore', () => {
     expect(b).toMatchObject({ id: 'b1', name: 'Léa', birthDate: '2026-09-20', inviteCode: 'ABCDE12345' });
   });
 
+  it('lit les bébés avec le rôle via list_my_babies (nounou : ni date ni code)', async () => {
+    const { client, calls } = fakeClient({ data: [{ id: 'b1', name: 'Léa', birth_date: null, invite_code: null, created_at: '2026-10-01T00:00:00Z', role: 'nanny' }] });
+    const [b] = await createSupabaseStore(client).listBabies();
+    expect(calls.rpc).toEqual(['list_my_babies', undefined]);
+    expect(b).toEqual({ id: 'b1', name: 'Léa', birthDate: null, inviteCode: undefined, createdAt: '2026-10-01T00:00:00Z', role: 'nanny' });
+  });
+
   describe('membres', () => {
     it('liste les membres avec leur e-mail et leur rôle', async () => {
       const { client, calls } = fakeClient({ data: [{ user_id: 'u1', email: 'maman@example.com', role: 'owner', joined_at: '2026-10-13T10:00:00Z' }] });
@@ -154,7 +162,14 @@ describe('supabaseStore', () => {
       const inv = await createSupabaseStore(client).inviteParent('b1', ' Papa@Example.com ');
       expect(calls.rpc).toEqual(['invite_parent', { p_baby_id: 'b1', p_email: ' Papa@Example.com ' }]);
       expect(calls.otp).toBeUndefined();
-      expect(inv).toEqual({ id: 'i1', babyId: 'b1', email: 'papa@example.com', createdAt: '2026-10-13T10:00:00Z', expiresAt: '2026-10-27T10:00:00Z', acceptedAt: null });
+      expect(inv).toEqual({ id: 'i1', babyId: 'b1', email: 'papa@example.com', createdAt: '2026-10-13T10:00:00Z', expiresAt: '2026-10-27T10:00:00Z', acceptedAt: null, role: 'parent' });
+    });
+
+    it("transmet le rôle nounou (et seulement dans ce cas, pour rester compatible avec une base non migrée)", async () => {
+      const { client, calls } = fakeClient({ data: { ...invRow, role: 'nanny' } });
+      const inv = await createSupabaseStore(client).inviteParent('b1', 'nounou@example.com', 'nanny');
+      expect(calls.rpc).toEqual(['invite_parent', { p_baby_id: 'b1', p_email: 'nounou@example.com', p_role: 'nanny' }]);
+      expect(inv.role).toBe('nanny');
     });
 
     it('traduit le refus de la base', async () => {

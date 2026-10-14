@@ -19,9 +19,11 @@ interface Props {
   event: BabyEvent;
   now: number;
   onClick: (e: BabyEvent) => void;
+  /** Noté par la nounou (affiché aux parents). */
+  byNanny?: boolean;
 }
 
-export function EventRow({ event, now, onClick }: Props) {
+export function EventRow({ event, now, onClick, byNanny }: Props) {
   const I = KIND_ICON[event.kind];
   return (
     <li>
@@ -31,7 +33,10 @@ export function EventRow({ event, now, onClick }: Props) {
         </span>
         <span className="event-text">
           <span className="event-title">{eventTitle(event)}</span>
-          <span className="event-sub">{eventSubtitle(event, now)}</span>
+          <span className="event-sub">
+            {eventSubtitle(event, now)}
+            {byNanny && <span className="by-nanny"> · par la nounou</span>}
+          </span>
           {event.note && <span className="event-note">{event.note}</span>}
         </span>
         <Icon.ChevronRight size={18} />
