@@ -89,6 +89,13 @@ Ne les lancez jamais sur votre base Supabase : le script crée de faux rôles et
 
 Projet Vite standard : sur Vercel, framework *Vite*, commande `npm run build`, dossier `dist`.
 
+## Mises à jour sans frustration
+
+- **Aucune interruption** : une nouvelle version se télécharge en arrière-plan et ne s'applique qu'au lancement (avant toute interaction) ou quand l'app passe en arrière-plan — jamais pendant une saisie (`src/lib/updates.ts`). Une app restée ouverte vérifie les nouveautés toutes les heures et à chaque retour au premier plan.
+- **Aucune déconnexion** : la session et les données restent sur l'appareil d'une version à l'autre.
+- **Base et app compatibles dans les deux sens** : les migrations ajoutent sans casser, et l'app détecte une base pas encore migrée (repli automatique) — on peut publier l'app avant ou après la migration.
+- **Vérifications automatiques** (`.github/workflows/ci.yml`) sur chaque PR : types, tests unitaires, build, et toutes les migrations + suites de sécurité sur une base jetable. Une PR rouge ne doit pas être fusionnée.
+
 ## Limites connues
 
 - **Pas de file d'attente hors-ligne en mode cloud** : l'interface se charge sans réseau, mais une écriture faite sans connexion échoue avec un message au lieu d'être mise en file. À traiter en priorité avant un usage réel (wifi capricieux la nuit).

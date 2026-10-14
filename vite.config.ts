@@ -61,7 +61,9 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       VitePWA({
-        registerType: 'autoUpdate',
+        // « prompt » : la nouvelle version attend que l'app décide du bon moment (lib/updates.ts), au lieu de
+        // recharger la page en pleine saisie.
+        registerType: 'prompt',
         includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
         manifest: {
           name: 'Dollo – suivi bébé',
