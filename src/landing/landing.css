@@ -95,9 +95,6 @@ html:has(.lp) { scroll-behavior: smooth; }
   display: flex; flex-direction: column; gap: 18px; align-items: flex-start; padding: 28px 22px; border-radius: 30px; background: var(--surface);
   border: 1px solid var(--border); box-shadow: 0 24px 56px rgb(120 60 20 / 14%);
 }
-.lp-tabs { display: flex; gap: 4px; padding: 5px; border-radius: 99px; background: var(--surface-2); width: 100%; max-width: 440px; }
-.lp-tabs button { flex: 1; min-height: 44px; padding: 0 8px; border: 0; border-radius: 99px; background: transparent; font-weight: 750; color: var(--muted); }
-.lp-tabs button[aria-selected='true'] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
 .lp-how { margin: 0; padding-left: 1.3em; display: grid; gap: 12px; line-height: 1.5; }
 .lp-how li::marker { font-weight: 900; color: var(--accent); }
 .lp-share { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
@@ -140,4 +137,34 @@ html:has(.lp) { scroll-behavior: smooth; }
   .lp-shots { grid-auto-flow: row; grid-template-columns: repeat(4, 1fr); grid-auto-columns: auto; overflow: visible; }
   .lp-install-card { padding: 44px; }
   .lp-sticky { display: none; }
+}
+
+/* ───────── Boutons iPhone / Android ───────── */
+.lp-btn.store { gap: 12px; padding: 0 22px; text-align: left; line-height: 1.1; }
+.lp-btn.store span { display: flex; flex-direction: column; font-size: 1.15rem; }
+.lp-btn.store small { font-size: 0.72rem; font-weight: 650; opacity: 0.85; }
+.lp-btn.dark { background: #1b1424; color: #fff; }
+.lp-try { display: inline-block; margin-top: 14px; }
+.lp-sticky .lp-btn.store { flex: 1; min-height: 52px; }
+@media (max-width: 559px) {
+  .lp-cta .lp-btn.store { flex: 1 1 0; width: auto; min-width: 0; padding: 0 14px; }
+}
+
+/* ───────── Fenêtre d'installation ───────── */
+.lp-modal { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; justify-content: center; background: rgb(20 10 30 / 45%); }
+.lp-modal-card {
+  position: relative; width: min(520px, 100%); max-height: 92dvh; overflow: auto; display: flex; flex-direction: column; gap: 16px;
+  padding: 26px 22px calc(26px + env(safe-area-inset-bottom, 0px)); border-radius: 28px 28px 0 0; background: var(--surface); color: var(--text);
+  box-shadow: 0 -20px 50px rgb(0 0 0 / 25%); text-align: left;
+}
+.lp-modal-card h2 { font-size: 1.5rem; max-width: none; }
+.lp-modal-close { position: absolute; top: 12px; right: 14px; width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--surface-2); font-size: 1.6rem; line-height: 1; color: var(--text); }
+.lp-steps-big { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; counter-reset: s; }
+.lp-steps-big li { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 18px; background: var(--surface-2); font-size: 1.05rem; line-height: 1.35; }
+.lp-step-icon { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 14px; background: var(--surface); color: #0a84ff; font-size: 1.1rem; }
+.lp-warn { padding: 12px 14px; border-radius: 14px; background: var(--diaper-bg); color: var(--diaper-fg); line-height: 1.45; }
+.lp-warn .lp-link { background: none; border: 0; padding: 0; font: inherit; }
+@media (min-width: 640px) {
+  .lp-modal { align-items: center; }
+  .lp-modal-card { border-radius: 28px; }
 }

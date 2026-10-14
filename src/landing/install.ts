@@ -10,6 +10,20 @@ export function detectPlatform(userAgent: string, maxTouchPoints = 0): Platform 
   return 'desktop';
 }
 
+/**
+ * Sur iPhone, l'ajout à l'écran d'accueil se fait depuis Safari. Les navigateurs intégrés (Instagram, Facebook, Gmail…)
+ * et les autres navigateurs iOS n'ont pas toujours l'option : on invite alors à rouvrir la page dans Safari.
+ */
+export function isIosSafari(userAgent: string): boolean {
+  return /Safari/i.test(userAgent) && !/CriOS|FxiOS|EdgiOS|OPiOS|GSA\/|Instagram|FBAN|FBAV|Line\/|Snapchat|LinkedInApp|Twitter/i.test(userAgent);
+}
+
+/** Lien qui rouvre la page dans Chrome sur Android (depuis Firefox, un navigateur intégré…). */
+export function chromeIntentUrl(href: string): string {
+  const u = new URL(href);
+  return `intent://${u.host}${u.pathname}${u.search}#Intent;scheme=${u.protocol.replace(':', '')};package=com.android.chrome;end`;
+}
+
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;

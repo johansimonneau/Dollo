@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '../components/icons';
-import { detectPlatform, useInstall, type Platform } from './install';
+import { InstallButtons } from './InstallButtons';
+import { useInstall } from './install';
 import './landing.css';
 
 const APP_URL = '/?app';
@@ -72,15 +73,9 @@ const FAQ = [
     a: 'Oui. Dollo est une web app installable : elle s’ajoute à l’écran d’accueil, s’ouvre en plein écran et se met à jour toute seule. Elle arrivera aussi sur les stores plus tard.',
   },
   { q: 'Et mes données ?', a: 'Elles sont hébergées en Europe. Chaque bébé n’est visible que par ses parents, et tu peux exporter le journal en CSV à tout moment.' },
-  { q: 'Ça marche sur iPhone et sur Android ?', a: 'Oui, et sur ordinateur aussi. L’installation diffère un peu selon l’appareil : le pas-à-pas est juste au-dessus.' },
+  { q: 'Ça marche sur iPhone et sur Android ?', a: 'Oui, et sur ordinateur aussi. Touche le bouton de ton appareil : sur Android l’installation se fait en un geste, sur iPhone en trois (Partager → Sur l’écran d’accueil → Ajouter).' },
   { q: 'Et sans réseau ?', a: 'L’écran s’ouvre, mais enregistrer sans réseau n’est pas encore possible : c’est en cours. On préfère te le dire plutôt que te laisser le découvrir à 3 h du matin.' },
   { q: 'Dollo remplace un avis médical ?', a: 'Non. Dollo t’aide à noter et à retrouver l’information. Pour toute question de santé, demande à ton pédiatre.' },
-];
-
-const TABS: { id: Platform; label: string }[] = [
-  { id: 'ios', label: 'iPhone' },
-  { id: 'android', label: 'Android' },
-  { id: 'desktop', label: 'Ordinateur' },
 ];
 
 function Phone({ src, alt, eager = false, tilt = false }: { src: string; alt: string; eager?: boolean; tilt?: boolean }) {
@@ -102,14 +97,9 @@ function Phone({ src, alt, eager = false, tilt = false }: { src: string; alt: st
 
 export default function Landing() {
   const { canPrompt, installed, install } = useInstall();
-  const [tab, setTab] = useState<Platform>('ios');
   const [copied, setCopied] = useState(false);
   const [sticky, setSticky] = useState(false);
   const heroCta = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setTab(detectPlatform(navigator.userAgent, navigator.maxTouchPoints));
-  }, []);
 
   // La barre d'installation collée en bas (mobile) n'apparaît qu'une fois les boutons du haut sortis de l'écran.
   useEffect(() => {
@@ -119,15 +109,6 @@ export default function Landing() {
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
-
-  const goInstall = async () => {
-    if (canPrompt) {
-      await install();
-      return;
-    }
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    document.getElementById('installer')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
-  };
 
   const shareLink = async () => {
     const url = window.location.origin;
@@ -170,19 +151,11 @@ export default function Landing() {
                 direct. Fini les « t’as donné quoi, à quelle heure ? ».
               </p>
               <div className="lp-cta" ref={heroCta}>
-                {installed ? (
-                  <a className="lp-btn primary" href={APP_URL}>
-                    Ouvrir Dollo
-                  </a>
-                ) : (
-                  <button type="button" className="lp-btn primary" onClick={() => void goInstall()}>
-                    <Icon.Plus size={22} /> Installer Dollo
-                  </button>
-                )}
-                <a className="lp-btn ghost" href={APP_URL}>
-                  Essayer dans le navigateur
-                </a>
+                <InstallButtons canPrompt={canPrompt} installed={installed} install={install} />
               </div>
+              <a className="lp-link lp-try" href={APP_URL}>
+                ou essayer dans le navigateur
+              </a>
               <ul className="lp-trust" aria-label="En bref">
                 <li>Sans App Store</li>
                 <li>Installation en quelques secondes</li>
@@ -282,65 +255,13 @@ export default function Landing() {
               Dollo s’installe directement depuis ton navigateur : même app, même icône, mises à jour automatiques.
             </p>
 
-            {canPrompt && !installed && (
-              <button type="button" className="lp-btn primary big" onClick={() => void install()}>
-                <Icon.Plus size={22} /> Installer maintenant
-              </button>
-            )}
-            {installed && (
-              <a className="lp-btn primary big" href={APP_URL}>
-                <Icon.Check size={22} /> Installée : ouvrir Dollo
-              </a>
-            )}
-
-            <div className="lp-tabs" role="tablist" aria-label="Choisir ton appareil">
-              {TABS.map((t) => (
-                <button key={t.id} type="button" role="tab" id={`tab-${t.id}`} aria-selected={tab === t.id} aria-controls={`panel-${t.id}`} onClick={() => setTab(t.id)}>
-                  {t.label}
-                </button>
-              ))}
-            </div>
-
-            <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="lp-panel">
-              {tab === 'ios' && (
-                <ol className="lp-how">
-                  <li>
-                    <b>Ouvre cette page dans Safari.</b> Sur iPhone et iPad, l’installation passe par Safari.
-                  </li>
-                  <li>
-                    Touche le bouton <b>Partager</b> (le carré avec la flèche vers le haut), en bas de l’écran.
-                  </li>
-                  <li>
-                    Choisis <b>« Sur l’écran d’accueil »</b>, puis <b>« Ajouter »</b>.
-                  </li>
-                </ol>
-              )}
-              {tab === 'android' && (
-                <ol className="lp-how">
-                  <li>
-                    Ouvre cette page dans <b>Chrome</b>.
-                  </li>
-                  <li>
-                    Touche <b>« Installer Dollo »</b> ci-dessus, ou le menu <b>⋮</b> puis <b>« Installer l’application »</b> (parfois « Ajouter à l’écran d’accueil »).
-                  </li>
-                  <li>Confirme : l’icône Dollo apparaît sur ton écran d’accueil.</li>
-                </ol>
-              )}
-              {tab === 'desktop' && (
-                <ol className="lp-how">
-                  <li>
-                    Dans <b>Chrome</b> ou <b>Edge</b>, clique sur l’icône d’installation à droite de la barre d’adresse (ou sur « Installer Dollo » ci-dessus).
-                  </li>
-                  <li>
-                    Dollo s’ouvre dans sa propre fenêtre. Mais c’est surtout <b>sur ton téléphone</b> qu’elle sert : envoie-toi le lien.
-                  </li>
-                </ol>
-              )}
+            <div className="lp-cta">
+              <InstallButtons canPrompt={canPrompt} installed={installed} install={install} />
             </div>
 
             <div className="lp-share">
               <button type="button" className="lp-btn ghost" onClick={() => void shareLink()}>
-                {copied ? 'Lien copié ✓' : 'Envoyer le lien sur mon téléphone'}
+                {copied ? 'Lien copié ✓' : 'Sur ordinateur ? Envoyer le lien sur mon téléphone'}
               </button>
               <a className="lp-link" href={APP_URL}>
                 ou essayer directement dans le navigateur
@@ -386,15 +307,7 @@ export default function Landing() {
           <div className="lp-wrap">
             <h2>Le prochain réveil de 3 h arrive. Autant être prêt.</h2>
             <div className="lp-cta center">
-              {installed ? (
-                <a className="lp-btn light" href={APP_URL}>
-                  Ouvrir Dollo
-                </a>
-              ) : (
-                <button type="button" className="lp-btn light" onClick={() => void goInstall()}>
-                  <Icon.Plus size={22} /> Installer Dollo
-                </button>
-              )}
+              <InstallButtons canPrompt={canPrompt} installed={installed} install={install} light />
             </div>
           </div>
         </section>
@@ -411,9 +324,7 @@ export default function Landing() {
 
       {sticky && !installed && (
         <div className="lp-sticky">
-          <button type="button" className="lp-btn primary" onClick={() => void goInstall()}>
-            <Icon.Plus size={20} /> Installer Dollo
-          </button>
+          <InstallButtons canPrompt={canPrompt} installed={installed} install={install} compact />
           <a className="lp-btn ghost" href={APP_URL}>
             Ouvrir
           </a>
