@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Baby, BabyEvent, BreastSide, DiaperType, EventKind, Invitation, InviteRole, Member, NewEvent, Role } from '../lib/types';
+import type { Baby, BabyEvent, BreastSide, DiaperType, EventKind, Invitation, InviteRole, Measurement, Member, NewEvent, NewMeasurement, Role } from '../lib/types';
 import { DEFAULT_PREFS } from '../../supabase/functions/_shared/reminders';
 import { isNetworkFailure, NetworkError, StoreError, type BabyInput, type Store } from './store';
 
@@ -11,6 +11,38 @@ interface BabyRow {
   created_at?: string;
   /** Renvoyé par list_my_babies() (migration 0005). */
   role?: Role;
+  sex?: 'f' | 'm' | null;
+}
+
+interface MeasurementRow {
+  id: string;
+  baby_id: string;
+  measured_on: string;
+  weight_g: number | null;
+  length_mm: number | null;
+  head_mm: number | null;
+  note: string | null;
+}
+
+const toMeasurement = (r: MeasurementRow): Measurement => ({
+  id: r.id,
+  babyId: r.baby_id,
+  measuredOn: r.measured_on,
+  weightG: r.weight_g,
+  lengthMm: r.length_mm,
+  headMm: r.head_mm,
+  note: r.note,
+});
+
+function measurementRow(m: Partial<NewMeasurement>): Record<string, unknown> {
+  const r: Record<string, unknown> = {};
+  if ('babyId' in m) r.baby_id = m.babyId;
+  if ('measuredOn' in m) r.measured_on = m.measuredOn;
+  if ('weightG' in m) r.weight_g = m.weightG;
+  if ('lengthMm' in m) r.length_mm = m.lengthMm;
+  if ('headMm' in m) r.head_mm = m.headMm;
+  if ('note' in m) r.note = m.note;
+  return r;
 }
 
 interface InvitationRow {
@@ -43,6 +75,7 @@ const toBaby = (r: BabyRow): Baby => ({
   inviteCode: r.invite_code ?? undefined,
   createdAt: r.created_at ?? '',
   role: r.role,
+  sex: r.sex ?? null,
 });
 
 const toInvitation = (r: InvitationRow): Invitation => ({
@@ -91,7 +124,8 @@ const DB_MESSAGES: [string, string][] = [
   ['forbidden', "Vous n'avez pas le droit de faire cela."],
   ['invalid_role', "Rôle d'invitation inconnu."],
   ['not_a_member', "Cette personne n'a pas (ou plus) accès à ce bébé."],
-  // Migration oubliée : PostgREST ne trouve pas la fonction.
+  // Migration oubliée : PostgREST ne trouve pas la fonction, la table ou la colonne.
+  ['in the schema cache', "La base n'est pas à jour : appliquez les migrations Supabase (voir le README)."],
   ['could not find the function', "La base n'est pas à jour : appliquez les migrations Supabase (voir le README)."],
 ];
 
@@ -130,7 +164,7 @@ export function createSupabaseStore(client: SupabaseClient): Store {
     async updateBaby(id, input) {
       const { data, error } = await client
         .from('babies')
-        .update({ name: input.name, birth_date: input.birthDate })
+        .update({ name: input.name, birth_date: input.birthDate, ...(input.sex !== undefined ? { sex: input.sex } : {}) })
         .eq('id', id)
         .select()
         .single();
@@ -232,6 +266,29 @@ export function createSupabaseStore(client: SupabaseClient): Store {
     async deletePushSubscription(endpoint) {
       const { error } = await client.from('push_subscriptions').delete().eq('endpoint', endpoint);
       if (error) fail(error, 'Impossible de désactiver les notifications.');
+    },
+
+    async listMeasurements(babyId) {
+      const { data, error } = await client.from('measurements').select('*').eq('baby_id', babyId).order('measured_on');
+      if (error) fail(error, 'Chargement des mesures impossible.');
+      return (data as MeasurementRow[]).map(toMeasurement);
+    },
+
+    async addMeasurement(m) {
+      const { data, error } = await client.from('measurements').insert(measurementRow(m)).select().single();
+      if (error) fail(error, 'Enregistrement de la mesure impossible.');
+      return toMeasurement(data as MeasurementRow);
+    },
+
+    async updateMeasurement(id, patch) {
+      const { data, error } = await client.from('measurements').update(measurementRow(patch)).eq('id', id).select().single();
+      if (error) fail(error, 'Modification de la mesure impossible.');
+      return toMeasurement(data as MeasurementRow);
+    },
+
+    async deleteMeasurement(id) {
+      const { error } = await client.from('measurements').delete().eq('id', id);
+      if (error) fail(error, 'Suppression de la mesure impossible.');
     },
 
     async listEvents(babyId, sinceIso) {

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import type { ReminderPrefs } from '../../supabase/functions/_shared/reminders';
 import { InviteByEmail } from '../components/InviteByEmail';
+import { PediatricianReport } from '../components/PediatricianReport';
 import { RemindersSettings } from '../components/RemindersSettings';
 import { Members } from '../components/Members';
 import { useToast } from '../components/toast';
@@ -43,14 +44,17 @@ export function Settings({ nanny = false, reminderPrefs, onReminderPrefsChange, 
     }
   };
 
-  const dirty = name.trim() !== baby.name || (birthDate || null) !== baby.birthDate;
+  const [sex, setSex] = useState<'f' | 'm' | null>(baby.sex ?? null);
+  const [report, setReport] = useState(false);
+  const sexChanged = sex !== (baby.sex ?? null);
+  const dirty = name.trim() !== baby.name || (birthDate || null) !== baby.birthDate || sexChanged;
 
   const save = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return toast.show('Le prénom ne peut pas être vide.', { tone: 'error' });
     setBusy(true);
     try {
-      onBabyUpdated(await store.updateBaby(baby.id, { name: name.trim(), birthDate: birthDate || null }));
+      onBabyUpdated(await store.updateBaby(baby.id, { name: name.trim(), birthDate: birthDate || null, ...(sexChanged ? { sex } : {}) }));
       toast.show('Profil mis à jour.');
     } catch (err) {
       toast.show(errorMessage(err), { tone: 'error' });
@@ -154,6 +158,19 @@ export function Settings({ nanny = false, reminderPrefs, onReminderPrefsChange, 
             <span className="label">Date de naissance</span>
             <input className="input" type="date" value={birthDate} max={dayKey(now)} onChange={(e) => setBirthDate(e.target.value)} />
           </label>
+          <div className="field">
+            <span className="label" id="sex-label">
+              Sexe <small>(courbes de croissance)</small>
+            </span>
+            <div className="segmented" role="group" aria-labelledby="sex-label">
+              <button type="button" aria-pressed={sex === 'f'} onClick={() => setSex('f')}>
+                Fille
+              </button>
+              <button type="button" aria-pressed={sex === 'm'} onClick={() => setSex('m')}>
+                Garçon
+              </button>
+            </div>
+          </div>
           <button type="submit" className="btn primary" disabled={!dirty || busy}>
             Enregistrer
           </button>
@@ -198,10 +215,15 @@ export function Settings({ nanny = false, reminderPrefs, onReminderPrefsChange, 
 
       <section className="card pad" aria-label="Données">
         <h2 className="section-title flush">Données</h2>
-        <p className="hint">Exportez le journal (45 derniers jours) pour le montrer au pédiatre ou l'ouvrir dans Excel.</p>
+        <p className="hint">Pour la consultation : un rapport d'une page (7 derniers jours, mesures, courbes), à imprimer ou enregistrer en PDF.</p>
+        <button type="button" className="btn primary" onClick={() => setReport(true)}>
+          Rapport pour le pédiatre
+        </button>
+        <p className="hint">Ou tout le journal (45 derniers jours) en tableau, pour Excel.</p>
         <button type="button" className="btn" onClick={exportCsv} disabled={events.length === 0}>
           Exporter en CSV
         </button>
+        {report && <PediatricianReport store={store} baby={baby} events={events} now={now} onClose={() => setReport(false)} />}
       </section>
 
       {common}

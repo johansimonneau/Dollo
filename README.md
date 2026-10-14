@@ -38,7 +38,7 @@ Sur [supabase.com](https://supabase.com) → *New project*. Choisissez une **ré
 > Utilisez un projet vierge, pas une base qui sert déjà à autre chose : la migration crée les tables `babies`, `baby_members`, `events` et `baby_invitations` dans le schéma `public`.
 
 ### 2. Créer les tables
-*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`, `0005_nanny.sql`, `0006_reminders.sql`.
+*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`, `0005_nanny.sql`, `0006_reminders.sql`, `0007_growth.sql`.
 
 ### 3. Récupérer les deux clés publiques
 *Project Settings → API Keys* (ou *API*) :
@@ -107,6 +107,14 @@ Dans l'app, un bandeau « C'est bientôt l'heure de manger » s'affiche toujours
 5. Planifier l'envoi toutes les 5 minutes : dans le SQL Editor, exécuter le bloc commenté à la fin de `0006_reminders.sql`, avec l'adresse du projet et la clé publique (anon / publishable).
 
 Sans les étapes 2 à 5, les rappels restent affichés dans l'app (bandeaux), sans notification.
+
+## Croissance et rapport pour le pédiatre
+
+*Stats → Croissance* : poids, taille et périmètre crânien, saisis à chaque pesée (PMI, pédiatre, pèse-bébé). Ils sont placés sur les **courbes de référence de l'OMS** (0–24 mois, filles et garçons), avec bandes 3e–97e et 15e–85e et la médiane, et le percentile de chaque mesure. Les données OMS (paramètres LMS officiels) sont dans `src/lib/whoData.ts`. Les calculs sont vérifiés contre les percentiles publiés (`growth.test.ts`). Le sexe du bébé se règle dans *Réglages* ou au premier affichage des courbes.
+
+*Réglages → Données → Rapport pour le pédiatre* : une page A4 avec les 7 derniers jours (tétées, biberons en ml bus, couches pipi / caca, sommeil, et les moyennes), les mesures avec percentiles, les trois courbes et les notes des parents. « Imprimer / PDF » ouvre la fenêtre d'impression du téléphone, d'où l'on choisit « Enregistrer en PDF ».
+
+Mesures et sexe sont réservés aux parents : la nounou n'y a pas accès (RLS, migration `0007_growth.sql`). Cette migration verrouille aussi l'auteur et le bébé d'un événement, qui ne sont plus modifiables depuis l'API.
 
 ## Hors ligne
 

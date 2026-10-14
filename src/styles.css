@@ -349,3 +349,60 @@ ul { list-style: none; margin: 0; padding: 0; }
 .reminders { display: flex; flex-direction: column; gap: 10px; }
 .next-feed { margin: -4px 0 10px; color: var(--muted); font-weight: 600; }
 .banner.offline { background: var(--sleep-bg); color: var(--sleep-fg); }
+.stats-body, .growth { display: flex; flex-direction: column; gap: 16px; }
+.stats-switch { margin-bottom: 4px; }
+.growth-chart { width: 100%; height: auto; margin-top: 10px; }
+.g-band-outer { fill: color-mix(in srgb, var(--accent) 12%, transparent); }
+.g-band-inner { fill: color-mix(in srgb, var(--accent) 22%, transparent); }
+.g-median { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.g-grid { stroke: var(--border); stroke-width: 1; }
+.g-tick, .g-label { font-size: 10px; fill: var(--muted); }
+.g-label { font-weight: 700; }
+.g-baby-line { fill: none; stroke: var(--breast); stroke-width: 2.5; }
+.g-baby-point { fill: var(--breast); stroke: var(--surface); stroke-width: 2; }
+.growth-last { font-size: 1.05rem; margin: 4px 0 0; }
+.growth-last span { color: var(--muted); }
+.growth-legend { margin: 6px 0 0; font-size: 0.78rem; color: var(--muted); }
+.growth-disclaimer { text-align: center; }
+.measure-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.measure-grid .field:last-child { grid-column: 1 / -1; }
+.measure-list { list-style: none; margin: 0; padding: 0; }
+.measure-row { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; width: 100%; padding: 14px 16px; border: 0; border-bottom: 1px solid var(--border); background: none; text-align: left; color: var(--text); }
+.measure-list li:last-child .measure-row { border-bottom: 0; }
+.measure-date { font-weight: 750; }
+.measure-values { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); }
+.measure-values small { color: var(--accent); font-weight: 650; }
+
+/* ───────── Rapport pour le pédiatre ───────── */
+.report { position: fixed; inset: 0; z-index: 70; overflow: auto; background: var(--bg); padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 40px; }
+.report-actions { position: sticky; top: 0; z-index: 1; display: flex; justify-content: space-between; gap: 10px; padding: 8px 0 12px; background: var(--bg); }
+.report-page { max-width: 820px; margin: 0 auto; padding: 22px 18px; border-radius: 18px; background: #fff; color: #1d1a1f; box-shadow: var(--shadow); font-size: 0.9rem; }
+.report-page h1 { font-size: 1.6rem; margin: 0; }
+.report-page h2 { font-size: 1rem; margin: 22px 0 8px; text-transform: uppercase; letter-spacing: 0.06em; color: #0b7a6d; }
+.report-head { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; border-bottom: 2px solid #0b7a6d; padding-bottom: 12px; }
+.report-head p { margin: 4px 0 0; color: #5b5560; }
+.report-meta { text-align: right; font-size: 0.82rem; }
+.report-table { width: 100%; border-collapse: collapse; }
+.report-table th, .report-table td { padding: 6px 6px; border-bottom: 1px solid #e6e0e8; text-align: left; vertical-align: top; }
+.report-table th { font-size: 0.75rem; color: #5b5560; font-weight: 700; }
+.report-table small { color: #5b5560; }
+.report-table tfoot td { font-weight: 700; border-top: 2px solid #cfc7d3; border-bottom: 0; }
+.report-note { margin: 6px 0 0; font-size: 0.78rem; color: #6d6672; }
+.report-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 12px; }
+.report-charts figure { margin: 0; }
+.report-charts figcaption { font-weight: 700; font-size: 0.82rem; }
+.report-notes { margin: 0; padding-left: 1.1em; display: grid; gap: 4px; }
+.report-foot { margin-top: 22px; padding-top: 10px; border-top: 1px solid #e6e0e8; font-size: 0.75rem; color: #6d6672; }
+.report .g-tick, .report .g-label { fill: #5b5560; }
+.report .g-grid { stroke: #e6e0e8; }
+
+@media print {
+  @page { size: A4; margin: 12mm; }
+  html.report-open body * { visibility: hidden; }
+  html.report-open .report, html.report-open .report * { visibility: visible; }
+  html.report-open .report { position: absolute; inset: 0; padding: 0; overflow: visible; background: #fff; }
+  .report-actions { display: none !important; }
+  .report-page { box-shadow: none; border-radius: 0; padding: 0; max-width: none; font-size: 10pt; }
+  .report-charts { grid-template-columns: repeat(3, 1fr); }
+  .report-table tr, .report-charts figure { break-inside: avoid; }
+}

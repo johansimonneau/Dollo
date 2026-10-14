@@ -16,7 +16,7 @@ import { useNow } from './lib/useNow';
 import { resolveWhen, type When } from './components/TimeChips';
 import { Journal } from './screens/Journal';
 import { Settings } from './screens/Settings';
-import { Stats } from './screens/Stats';
+import { StatsTabs } from './screens/StatsTabs';
 import { Today } from './screens/Today';
 
 type Tab = 'today' | 'journal' | 'stats' | 'settings';
@@ -303,7 +303,7 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
             nannyIds={nannyIds}
           />
         )}
-        {tab === 'stats' && <Stats events={events} now={now} />}
+        {tab === 'stats' && <StatsTabs store={store} baby={baby} events={events} now={now} onBabyUpdated={onBabyUpdated} />}
         {tab === 'settings' && (
           <Settings
             nanny={nanny}

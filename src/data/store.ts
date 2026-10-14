@@ -1,5 +1,5 @@
 import type { ReminderPrefs } from '../../supabase/functions/_shared/reminders';
-import type { Baby, BabyEvent, Invitation, InviteRole, Member, NewEvent } from '../lib/types';
+import type { Baby, BabyEvent, Invitation, InviteRole, Measurement, Member, NewEvent, NewMeasurement } from '../lib/types';
 
 /** Abonnement Web Push d'un appareil (PushSubscription.toJSON()). */
 export interface PushSubscriptionData {
@@ -11,6 +11,8 @@ export interface PushSubscriptionData {
 export interface BabyInput {
   name: string;
   birthDate: string | null;
+  /** Transmis seulement s'il est renseigné (compatibilité avec une base sans la migration 0007). */
+  sex?: 'f' | 'm' | null;
 }
 
 /**
@@ -47,6 +49,11 @@ export interface Store {
   /** Enregistre l'appareil pour recevoir les notifications (cloud uniquement). */
   savePushSubscription(sub: PushSubscriptionData): Promise<void>;
   deletePushSubscription(endpoint: string): Promise<void>;
+  /** Mesures de croissance (parents uniquement), de la plus ancienne à la plus récente. */
+  listMeasurements(babyId: string): Promise<Measurement[]>;
+  addMeasurement(m: NewMeasurement): Promise<Measurement>;
+  updateMeasurement(id: string, patch: Partial<NewMeasurement>): Promise<Measurement>;
+  deleteMeasurement(id: string): Promise<void>;
   listEvents(babyId: string, sinceIso: string): Promise<BabyEvent[]>;
   /** `id` : identifiant choisi par l'appareil (saisie hors ligne rejouée plus tard sans doublon). */
   addEvent(event: NewEvent, id?: string): Promise<BabyEvent>;

@@ -59,6 +59,14 @@ select expect_count('la nounou a terminé le dodo lancé par Alice', format($q$s
 select test_as(:'carol');
 select expect_error('…mais ne peut pas en changer le début', format($q$update events set started_at = now() - interval '2 hours', ended_at = now() where id = %L$q$, :'nap_id'), 'forbidden');
 
+-- Auteur et bébé d'un événement : non modifiables (sinon « par la nounou » pourrait être effacé, ou un événement déplacé)
+insert into events (baby_id, kind, started_at, diaper_type) values (:'baby_id', 'diaper', now() - interval '5 min', 'pee') returning id as id \gset own_
+select expect_error('la nounou ne peut pas attribuer sa saisie à Alice', format($q$update events set created_by = %L where id = %L$q$, :'alice', :'own_id'), 'permission denied');
+select test_as(:'alice');
+select expect_error('un parent non plus', format($q$update events set created_by = %L where id = %L$q$, :'alice', :'own_id'), 'permission denied');
+select expect_error('…ni déplacer un événement vers un autre bébé', format($q$update events set baby_id = gen_random_uuid() where id = %L$q$, :'own_id'), 'permission denied');
+select test_as(:'carol');
+
 -- 3. Rien sur les parents
 select test_as(:'carol');
 select expect_count('elle ne voit pas les autres membres', format($q$select count(*) from baby_members where baby_id = %L and user_id <> %L$q$, :'baby_id', :'carol'), 0);

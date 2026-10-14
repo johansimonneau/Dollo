@@ -125,7 +125,34 @@ describe('supabaseStore', () => {
     const { client, calls } = fakeClient({ data: [{ id: 'b1', name: 'Léa', birth_date: null, invite_code: null, created_at: '2026-10-01T00:00:00Z', role: 'nanny' }] });
     const [b] = await createSupabaseStore(client).listBabies();
     expect(calls.rpc).toEqual(['list_my_babies', undefined]);
-    expect(b).toEqual({ id: 'b1', name: 'Léa', birthDate: null, inviteCode: undefined, createdAt: '2026-10-01T00:00:00Z', role: 'nanny' });
+    expect(b).toEqual({ id: 'b1', name: 'Léa', birthDate: null, inviteCode: undefined, createdAt: '2026-10-01T00:00:00Z', role: 'nanny', sex: null });
+  });
+
+  describe('croissance', () => {
+    it('convertit une mesure (grammes, millimètres) et n\'envoie que les champs fournis', async () => {
+      const row = { id: 'm1', baby_id: 'b1', measured_on: '2026-10-01', weight_g: 4250, length_mm: 545, head_mm: null, note: null };
+      const read = fakeClient({ data: [row] });
+      expect(await createSupabaseStore(read.client).listMeasurements('b1')).toEqual([
+        { id: 'm1', babyId: 'b1', measuredOn: '2026-10-01', weightG: 4250, lengthMm: 545, headMm: null, note: null },
+      ]);
+      const upd = fakeClient({ data: row });
+      await createSupabaseStore(upd.client).updateMeasurement('m1', { weightG: 4300 });
+      expect(upd.calls.payload).toEqual({ weight_g: 4300 });
+    });
+
+    it("le sexe n'est envoyé que s'il est fourni (base sans migration 0007 : le reste du profil s'enregistre)", async () => {
+      const a = fakeClient({ data: { id: 'b1', name: 'Léa', birth_date: null, invite_code: 'X', created_at: '' } });
+      await createSupabaseStore(a.client).updateBaby('b1', { name: 'Léa', birthDate: null });
+      expect(a.calls.payload).toEqual({ name: 'Léa', birth_date: null });
+      const b = fakeClient({ data: { id: 'b1', name: 'Léa', birth_date: null, invite_code: 'X', created_at: '', sex: 'f' } });
+      await createSupabaseStore(b.client).updateBaby('b1', { name: 'Léa', birthDate: null, sex: 'f' });
+      expect(b.calls.payload).toEqual({ name: 'Léa', birth_date: null, sex: 'f' });
+    });
+
+    it('colonne ou table absente (migration non appliquée) : message clair', async () => {
+      const { client } = fakeClient({ error: { message: "Could not find the table 'public.measurements' in the schema cache" } });
+      await expect(createSupabaseStore(client).listMeasurements('b1')).rejects.toThrow('appliquez les migrations Supabase');
+    });
   });
 
   describe('membres', () => {

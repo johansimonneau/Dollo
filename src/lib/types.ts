@@ -16,7 +16,22 @@ export interface Baby {
   createdAt: string;
   /** Rôle de l'utilisateur connecté (mode cloud). Absent = accès complet. */
   role?: Role;
+  /** Sexe (courbes de croissance OMS). null / absent = non renseigné. */
+  sex?: 'f' | 'm' | null;
 }
+
+/** Mesure de croissance (poids en grammes, tailles en millimètres : pas d'arrondi flottant en base). */
+export interface Measurement {
+  id: string;
+  babyId: string;
+  /** YYYY-MM-DD */
+  measuredOn: string;
+  weightG: number | null;
+  lengthMm: number | null;
+  headMm: number | null;
+  note: string | null;
+}
+export type NewMeasurement = Omit<Measurement, 'id'>;
 
 /** Personne ayant accès au suivi d'un bébé. */
 export interface Member {
