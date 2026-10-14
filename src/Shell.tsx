@@ -1,4 +1,6 @@
-import { useEffect, useState, type JSX } from 'react';
+import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
+import { COMMAND_EXAMPLES, parseCommand, type Command } from './lib/commands';
+import { useVoice, voiceSupported } from './lib/useVoice';
 import { DEFAULT_PREFS, type ReminderPrefs } from '../supabase/functions/_shared/reminders';
 import { syncPush } from './lib/push';
 import { byAppointment, doseStatus, dueDate } from './lib/vaccines';
@@ -11,12 +13,12 @@ import { MilkStock } from './components/MilkStock';
 import { useToast } from './components/toast';
 import { errorMessage, type Store } from './data/store';
 import { DIAPER_LABEL, fmtTemp, SIDE_LABEL } from './lib/labels';
-import { ongoing } from './lib/summary';
+import { ongoing, suggestNextSide } from './lib/summary';
 import { babyAge, fmtDuration } from './lib/time';
 import { emptyEvent, type Baby, type BabyEvent, type BreastSide, type DiaperType, type MilkBag, type PumpSide } from './lib/types';
 import { useEvents } from './lib/useEvents';
 import { useNow } from './lib/useNow';
-import { resolveWhen, type When } from './components/TimeChips';
+import { NOW, resolveWhen, type When } from './components/TimeChips';
 import { Journal } from './screens/Journal';
 import { Settings } from './screens/Settings';
 import { StatsTabs } from './screens/StatsTabs';
@@ -320,6 +322,67 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
     toast.show('Événement supprimé.', { actionLabel: 'Annuler', onAction: () => guard(async () => void (await add(copy))) });
   };
 
+  /** Exécute une commande (dictée ou lien d'action) avec les mêmes enregistrements que les boutons. */
+  const runCommand = (c: Command) => {
+    switch (c.type) {
+      case 'bottle':
+        return void saveBottle(c.ml ?? readLastMl(), NOW, null);
+      case 'diaper':
+        return void saveDiaper(c.diaperType, NOW, null);
+      case 'breast':
+        return void startBreast(c.side === 'next' ? (suggestNextSide(events) ?? 'left') : c.side);
+      case 'stopFeed': {
+        const feed = ongoing(events).find((e) => e.kind === 'breast');
+        return feed ? void stop(feed) : toast.show('Aucune tétée en cours.');
+      }
+      case 'sleep': {
+        const sleeping = ongoing(events).some((e) => e.kind === 'sleep');
+        if (c.mode === 'start' && sleeping) return toast.show('Bébé dort déjà (dodo en cours).');
+        if (c.mode === 'stop' && !sleeping) return toast.show("Aucun dodo en cours.");
+        return void toggleSleep();
+      }
+      case 'temp':
+        return void saveTemp(c.c, NOW, null);
+      case 'med':
+        return void saveMed(c.name, null, NOW, null);
+    }
+  };
+
+  // Dictée : la première transcription comprise l'emporte (le téléphone en propose plusieurs).
+  const onPhrases = useCallback(
+    (phrases: string[]) => {
+      for (const p of phrases) {
+        const c = parseCommand(p);
+        if (c) return runCommandRef.current(c);
+      }
+      toast.show(`Pas compris : « ${phrases[0] ?? ''} ». Exemples : ${COMMAND_EXAMPLES.slice(0, 4).join(', ')}…`, { tone: 'error', durationMs: 7000 });
+    },
+    [toast],
+  );
+  const runCommandRef = useRef(runCommand);
+  runCommandRef.current = runCommand;
+  const voice = useVoice(onPhrases, (m) => toast.show(m, { tone: 'error' }));
+
+  // Liens d'action (Siri / Raccourcis, icône épinglée, raccourcis Android) : ?app&do=biberon 120 ou ?app&open=bottle.
+  // Exécutés une seule fois, après le premier chargement (pour connaître la tétée / le dodo en cours), puis retirés de l'adresse.
+  const linkHandled = useRef(false);
+  useEffect(() => {
+    if (loading || linkHandled.current) return;
+    linkHandled.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const todo = params.get('do');
+    const open = params.get('open');
+    if (!todo && !open) return;
+    params.delete('do');
+    params.delete('open');
+    const rest = params.toString().replace(/=(&|$)/g, '$1');
+    window.history.replaceState(null, '', `${window.location.pathname}${rest ? `?${rest}` : ''}${window.location.hash}`);
+    if (open === 'bottle' || open === 'diaper' || open === 'temp' || open === 'med' || open === 'pump') return setSheet({ type: open });
+    const c = todo ? parseCommand(todo) : null;
+    if (c) runCommandRef.current(c);
+    else toast.show(`Lien non compris : « ${todo} ».`, { tone: 'error' });
+  }, [loading, toast]);
+
   const edit = (event: BabyEvent) => {
     // La base l'interdit de toute façon : on l'explique plutôt que d'afficher une erreur à l'enregistrement.
     if (nanny && event.createdBy && event.createdBy !== userId) {
@@ -393,6 +456,7 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
               openMed: () => setSheet({ type: 'med' }),
               openPump: () => setSheet({ type: 'pump' }),
               openMilk: () => setSheet({ type: 'milk' }),
+              voice: voiceSupported() ? { listening: voice.listening, start: voice.start, stop: voice.stop } : null,
               edit,
             }}
           />

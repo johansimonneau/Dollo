@@ -31,6 +31,13 @@ export const Icon = {
       <path d="M12 9v7" />
     </Svg>
   ),
+  /** Dictée : un micro. */
+  Mic: (p: P) => (
+    <Svg {...p}>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" />
+    </Svg>
+  ),
   /** Tire-lait : une goutte. */
   Drop: (p: P) => (
     <Svg {...p}>

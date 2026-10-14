@@ -18,6 +18,8 @@ export interface TodayActions {
   openMed: () => void;
   openPump: () => void;
   openMilk: () => void;
+  /** Dictée (null si le navigateur ne la gère pas). */
+  voice: { listening: boolean; start: () => void; stop: () => void } | null;
   edit: (event: BabyEvent) => void;
 }
 
@@ -144,7 +146,20 @@ export function Today({ events, now, actions, reminderPrefs, birthDate, vaccines
       )}
 
       <section aria-label="Enregistrer rapidement">
-        <h2 className="section-title">Enregistrer</h2>
+        <div className="section-head">
+          <h2 className="section-title">Enregistrer</h2>
+          {actions.voice && (
+            <button
+              type="button"
+              className={`voice-btn${actions.voice.listening ? ' on' : ''}`}
+              aria-pressed={actions.voice.listening}
+              onClick={actions.voice.listening ? actions.voice.stop : actions.voice.start}
+            >
+              <Icon.Mic size={20} /> {actions.voice.listening ? 'Je vous écoute…' : 'Dicter'}
+            </button>
+          )}
+        </div>
+        {actions.voice?.listening && <p className="voice-hint">Dites par exemple « biberon 120 », « couche pipi », « dodo », « température 38,2 ».</p>}
         <div className="quick-grid">
           {(['left', 'right'] as const).map((side) => (
             <button

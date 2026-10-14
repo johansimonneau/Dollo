@@ -133,6 +133,13 @@ Vaccins : parents uniquement (RLS, migration `0008_health.sql`).
 - **Dates limites** (`src/lib/milk.ts`) : 48 h au réfrigérateur, 4 mois au congélateur, 24 h une fois décongelé et sans recongeler. Ce sont les repères prudents les plus courants : les consignes de la maternité priment. Un bandeau prévient quand du lait au frigo arrive à moins de 12 h de sa limite, puis quand il est périmé.
 - Toute la famille partage le stock, nounou comprise, mais seuls les parents peuvent supprimer une ligne (migration `0009_milk.sql`).
 
+## Mains libres
+
+- **Dicter** (bouton micro sur *Aujourd'hui*, via la reconnaissance vocale du téléphone) : « biberon 120 », « couche pipi », « caca », « sein gauche », « tétée », « fin de tétée », « dodo », « réveil », « température 38,2 », « vitamine D », « médicament smecta »… L'interprétation (`src/lib/commands.ts`) gère les variantes courantes, et si la première transcription n'est pas comprise, Dollo essaie les suivantes. Chaque saisie peut être annulée.
+- **Liens d'action** : `/?app&do=biberon%20120` enregistre l'action, `/?app&open=bottle` ouvre la feuille. Le lien n'est exécuté qu'une fois puis retiré de l'adresse. Sur iPhone, on l'utilise avec **Siri** (app Raccourcis → « Ouvrir des URL » → « Dis Siri, biberon 120 »). Sur Android, avec une routine de l'Assistant Google, ou en icône épinglée sur l'écran d'accueil. *Réglages → Mains libres* fournit les liens à copier.
+- **Appui long sur l'icône** (Android, ordinateur) : Biberon, Couche, Tétée, Dodo (raccourcis du manifeste).
+- Une app installée depuis le navigateur ne peut pas avoir de **widget** d'écran d'accueil, ni sur iOS ni sur Android. Il faudra les versions App Store / Google Play.
+
 ## Hors ligne
 
 Sans réseau (chambre sans signal, métro), Dollo s'ouvre avec les dernières données vues, et **on continue à noter** : chaque saisie s'affiche tout de suite et est gardée sur le téléphone. Un bandeau « Hors connexion · 2 saisies en attente » l'indique. Au retour du réseau, les saisies partent toutes seules, dans l'ordre et **sans doublon** : l'identifiant est choisi par le téléphone, et un envoi dont la réponse s'est perdue n'est pas recréé. Une saisie corrigée ou supprimée hors ligne n'envoie que le résultat final. Si le serveur refuse une saisie (accès retiré entre-temps, événement supprimé par l'autre parent), elle est abandonnée et un message le signale. La file est propre à chaque compte (`src/data/offlineStore.ts`).

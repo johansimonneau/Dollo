@@ -81,6 +81,13 @@ export default defineConfig(({ mode }) => {
             { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
             { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
           ],
+          // Appui long sur l'icône (Android, ordinateur) : actions directes. Voir lib/commands.ts et Shell (liens d'action).
+          shortcuts: [
+            { name: 'Biberon', short_name: 'Biberon', url: '/?app&open=bottle', icons: [{ src: 'icon-192.png', sizes: '192x192' }] },
+            { name: 'Couche', short_name: 'Couche', url: '/?app&open=diaper', icons: [{ src: 'icon-192.png', sizes: '192x192' }] },
+            { name: 'Tétée (sein suggéré)', short_name: 'Tétée', url: '/?app&do=t%C3%A9t%C3%A9e', icons: [{ src: 'icon-192.png', sizes: '192x192' }] },
+            { name: 'Dodo / réveil', short_name: 'Dodo', url: '/?app&do=sommeil', icons: [{ src: 'icon-192.png', sizes: '192x192' }] },
+          ],
         },
         // push-sw.js : affichage des notifications de rappel et ouverture de l'app au toucher.
         workbox: { navigateFallback: '/index.html', importScripts: ['push-sw.js'] },

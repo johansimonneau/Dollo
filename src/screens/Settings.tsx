@@ -3,6 +3,7 @@ import type { ReminderPrefs } from '../../supabase/functions/_shared/reminders';
 import { InviteByEmail } from '../components/InviteByEmail';
 import { PediatricianReport } from '../components/PediatricianReport';
 import { RemindersSettings } from '../components/RemindersSettings';
+import { HandsFree } from '../components/HandsFree';
 import { Members } from '../components/Members';
 import { useToast } from '../components/toast';
 import { errorMessage, type Store } from '../data/store';
@@ -109,6 +110,7 @@ export function Settings({ nanny = false, reminderPrefs, onReminderPrefsChange, 
   const common = (
     <>
       <RemindersSettings store={store} baby={baby} prefs={reminderPrefs} onPrefsChange={onReminderPrefsChange} />
+      <HandsFree />
       <section className="card pad" aria-label="Installer l'application">
         <h2 className="section-title flush">Installer sur l'écran d'accueil</h2>
         <p className="hint">

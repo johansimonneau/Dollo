@@ -455,3 +455,12 @@ ul { list-style: none; margin: 0; padding: 0; }
 .reminder-banner.kind-pump { background: var(--pump-bg); color: var(--pump-fg); }
 .banner-btn { width: 100%; border: 0; text-align: left; font: inherit; font-weight: 650; }
 .milk-card { margin-top: 12px; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.section-head .section-title { margin: 0; }
+.voice-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--accent); font-weight: 750; }
+.voice-btn.on { background: var(--accent); color: var(--accent-ink); border-color: transparent; animation: voice-pulse 1.2s ease-in-out infinite; }
+@keyframes voice-pulse { 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 20%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .voice-btn.on { animation: none; } }
+.voice-hint { margin: 6px 0 0; color: var(--muted); font-size: 0.9rem; }
+.link-list { list-style: none; margin: 8px 0 12px; padding: 0; }
+.link-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--border); }
