@@ -64,8 +64,16 @@ export function AuthScreen() {
       }
       const { data, error: err } = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: redirectTo() } });
       if (err) throw err;
-      // Sans session, Supabase attend la confirmation de l'adresse.
-      if (!data.session) setPending(email.trim());
+      if (data.session) return;
+      // Adresse déjà inscrite : Supabase ne renvoie ni erreur ni e-mail, mais un utilisateur sans identité.
+      if (data.user && data.user.identities?.length === 0) {
+        setMode('signin');
+        setConfirm('');
+        setInfo('Un compte existe déjà avec cet e-mail : connectez-vous avec votre mot de passe.');
+        return;
+      }
+      // Sinon, Supabase attend la confirmation de l'adresse.
+      setPending(email.trim());
     });
   };
 
