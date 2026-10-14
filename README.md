@@ -119,7 +119,7 @@ Mesures et sexe sont réservés aux parents : la nounou n'y a pas accès (RLS, m
 ## Santé : température, médicaments, vaccins
 
 - **Température** et **médicament** se notent depuis *Aujourd'hui*, comme les autres événements : partagés en direct, notés hors ligne, et la nounou peut les saisir. Au-delà de 38 °C, un bandeau rappelle quoi faire : avant 3 mois, consulter rapidement (médecin ou 15) ; ensuite, surveiller et appeler en cas de doute.
-- Avant une nouvelle prise, la feuille Médicament affiche **la dernière prise du même médicament**, avec la personne qui l'a donnée et la dose. Le but est d'éviter qu'il soit donné deux fois par deux personnes. Dollo n'indique aucune posologie.
+- Avant une nouvelle prise, la feuille Médicament affiche **la dernière prise du même médicament** et sa dose. Le but est d'éviter qu'il soit donné deux fois par deux personnes. Dollo n'indique aucune posologie.
 - **Traitement quotidien** (vitamine D…) : *Réglages → Rappels*. Bandeau et notification à l'heure choisie tant que la prise du jour n'est pas notée, avec une seule notification par jour.
 - **Vaccins** (*Stats → Santé*) : le calendrier français du nourrisson 2025–2026 (`src/lib/vaccines.ts`), dose par dose, avec date prévue et statut (fait, à faire, plus tard). Les méningocoques B et ACWY sont obligatoires depuis 2025, le rotavirus est recommandé. Un bandeau signale le rendez-vous à venir. Le calendrier sert de repère : le médecin décide du schéma.
 - Le rapport pour le pédiatre reprend températures, médicaments et vaccins.
