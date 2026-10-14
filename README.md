@@ -73,9 +73,9 @@ Pour le développement local : copiez `.env.example` vers `.env.local`.
 ```
 
 ### 7. Vérifier
-1. Ouvrez l'app, créez un compte (ou « Recevoir un code par e-mail »), créez le bébé.
+1. Ouvrez l'app, saisissez votre e-mail, puis le code à 6 chiffres reçu (c'est la même démarche pour créer un compte et pour se reconnecter : il n'y a pas de mot de passe). Créez le bébé.
 2. *Réglages → Partager avec l'autre parent* : saisissez l'e-mail de l'autre parent → *Inviter*.
-3. L'autre parent ouvre l'app, choisit « Recevoir un code par e-mail » (ou « J'ai déjà reçu un code »), saisit le code : il arrive **directement** sur le bébé, sans rien recopier.
+3. L'autre parent ouvre l'app, saisit son e-mail (ou « J'ai déjà un code » s'il l'a déjà reçu), puis le code : il arrive **directement** sur le bébé, sans rien recopier.
 
 Si l'e-mail ne part pas, l'invitation reste valable : la personne peut se connecter avec cette adresse et rejoindra le bébé automatiquement. Le **code d'invitation** à recopier reste disponible en alternative.
 
