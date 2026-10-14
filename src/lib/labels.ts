@@ -18,6 +18,10 @@ export const DIAPER_LABEL: Record<DiaperType, string> = {
 /** « 1 150 ml » : séparateur de milliers français, espaces insécables. */
 export const fmtMl = (ml: number) => `${ml.toLocaleString('fr-FR')}\u00a0ml`;
 
+/** « 0,72 L » (2 décimales, espace insécable) : le cumul de biberons du jour, lisible d'un coup d'œil. */
+export const fmtLiters = (ml: number) =>
+  `${(ml / 1000).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\u00a0L`;
+
 const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
 
 /** Résumé d'un type d'événement : « 2 biberons · 180 ml bus ». La quantité d'un biberon est toujours la quantité bue. */

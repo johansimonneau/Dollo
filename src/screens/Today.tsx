@@ -1,7 +1,7 @@
 import { Icon } from '../components/icons';
-import { eventTitle, fmtMl, SIDE_LABEL } from '../lib/labels';
+import { eventTitle, fmtLiters, SIDE_LABEL, summaryText } from '../lib/labels';
 import { summarize, lastOf, ongoing, suggestNextSide } from '../lib/summary';
-import { DAY, MINUTE, fmtClock, fmtDuration, fmtTimer, timeAgo } from '../lib/time';
+import { DAY, HOUR, MINUTE, fmtClock, fmtDuration, fmtTimer, timeAgo } from '../lib/time';
 import type { BabyEvent, BreastSide, EventKind } from '../lib/types';
 
 const KIND_ICON = { breast: Icon.Breast, bottle: Icon.Bottle, diaper: Icon.Diaper, sleep: Icon.Moon } as const;
@@ -25,7 +25,9 @@ export function Today({ events, now, actions }: Props) {
   const running = ongoing(events);
   const nextSide = suggestNextSide(events);
   const sleeping = running.find((e) => e.kind === 'sleep');
-  const day = summarize(events, now - DAY, now + 1, now);
+  // Fenêtre glissante de 24 h. La borne de fin dépasse `now` : l'horloge de l'écran n'avance que toutes les 15 s, et un
+  // événement saisi juste après un tic (heure réelle > `now`) serait sinon exclu jusqu'au prochain.
+  const day = summarize(events, now - DAY, now + HOUR, now);
 
   return (
     <div className="screen">
@@ -75,7 +77,10 @@ export function Today({ events, now, actions }: Props) {
           ))}
           <button type="button" className="quick kind-bottle" onClick={actions.openBottle}>
             <Icon.Bottle size={28} />
-            <span className="quick-label">Biberon</span>
+            <span className="quick-text">
+              <span className="quick-label">Biberon</span>
+              {day.bottleMl > 0 && <span className="quick-sub">{fmtLiters(day.bottleMl)}{'\u00a0'}sur{'\u00a0'}24{'\u00a0'}h</span>}
+            </span>
           </button>
           <button type="button" className="quick kind-diaper" onClick={actions.openDiaper}>
             <Icon.Diaper size={28} />
@@ -83,7 +88,10 @@ export function Today({ events, now, actions }: Props) {
           </button>
           <button type="button" className={`quick kind-sleep wide${sleeping ? ' active' : ''}`} onClick={actions.toggleSleep}>
             {sleeping ? <Icon.Sun size={28} /> : <Icon.Moon size={28} />}
-            <span className="quick-label">{sleeping ? 'Réveil' : 'Dodo'}</span>
+            <span className="quick-text">
+              <span className="quick-label">{sleeping ? 'Réveil' : 'Dodo'}</span>
+              {day.sleepMs > 0 && <span className="quick-sub">{fmtDuration(day.sleepMs)}{'\u00a0'}de sommeil sur{'\u00a0'}24{'\u00a0'}h</span>}
+            </span>
           </button>
         </div>
       </section>
@@ -105,11 +113,11 @@ export function Today({ events, now, actions }: Props) {
           <Tile
             kind="bottle"
             label="Biberons"
-            value={String(day.bottleCount)}
-            detail={day.bottleMl > 0 ? `${fmtMl(day.bottleMl)}\u00a0bus` : '—'}
+            value={day.bottleMl > 0 ? fmtLiters(day.bottleMl) : '—'}
+            detail={day.bottleCount > 0 ? summaryText('bottle', day) : 'aucun biberon'}
           />
           <Tile kind="diaper" label="Couches" value={String(day.diaperCount)} detail={`${day.pee} pipi · ${day.poop} caca`} />
-          <Tile kind="sleep" label="Sommeil" value={day.sleepMs > 0 ? fmtDuration(day.sleepMs) : '—'} detail={`${day.sleepCount} sieste(s)/nuit(s)`} />
+          <Tile kind="sleep" label="Sommeil" value={day.sleepMs > 0 ? fmtDuration(day.sleepMs) : '—'} detail="cumul sur 24 h" />
         </div>
       </section>
     </div>
