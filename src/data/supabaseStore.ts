@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { translateAuthError } from '../lib/authErrors';
-import type { Baby, BabyEvent, BreastSide, DiaperType, EventKind, Invitation, NewEvent } from '../lib/types';
+import type { Baby, BabyEvent, BreastSide, DiaperType, EventKind, Invitation, Member, NewEvent } from '../lib/types';
 import { StoreError, type BabyInput, type Store } from './store';
 
 interface BabyRow {
@@ -82,6 +81,7 @@ const DB_MESSAGES: [string, string][] = [
   ['invalid_email', 'Adresse e-mail invalide.'],
   ['too_many_invitations', "Trop d'invitations en attente (5 maximum). Annulez-en une d'abord."],
   ['forbidden', "Vous n'avez pas le droit de faire cela."],
+  ['not_a_member', "Cette personne n'a pas (ou plus) accès à ce bébé."],
   // Migration oubliée : PostgREST ne trouve pas la fonction.
   ['could not find the function', "La base n'est pas à jour : appliquez les migrations Supabase (voir le README)."],
 ];
@@ -149,18 +149,28 @@ export function createSupabaseStore(client: SupabaseClient): Store {
     async inviteParent(babyId, email) {
       const { data, error } = await client.rpc('invite_parent', { p_baby_id: babyId, p_email: email });
       if (error) fail(error, "Invitation impossible.");
-      const invitation = toInvitation(data as InvitationRow);
-      // L'e-mail est envoyé par Supabase Auth (code de connexion). S'il échoue (limite d'envoi…), l'invitation reste
-      // valable : la personne rejoindra en se connectant avec cette adresse.
-      const { error: mailError } = await client.auth.signInWithOtp({ email: invitation.email, options: { shouldCreateUser: true } });
-      return mailError
-        ? { invitation, emailSent: false, emailError: translateAuthError(mailError.message) }
-        : { invitation, emailSent: true };
+      return toInvitation(data as InvitationRow);
     },
 
     async cancelInvitation(id) {
       const { error } = await client.from('baby_invitations').delete().eq('id', id);
       if (error) fail(error, "Annulation impossible.");
+    },
+
+    async listMembers(babyId) {
+      const { data, error } = await client.rpc('list_members', { p_baby_id: babyId });
+      if (error) fail(error, 'Chargement des membres impossible.');
+      return ((data ?? []) as { user_id: string; email: string; role: Member['role']; joined_at: string }[]).map((r) => ({
+        userId: r.user_id,
+        email: r.email,
+        role: r.role,
+        joinedAt: r.joined_at,
+      }));
+    },
+
+    async removeMember(babyId, userId) {
+      const { error } = await client.rpc('remove_member', { p_baby_id: babyId, p_user_id: userId });
+      if (error) fail(error, 'Impossible de retirer ce parent.');
     },
 
     async acceptInvitations() {

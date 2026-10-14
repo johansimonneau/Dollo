@@ -12,6 +12,15 @@ export interface Baby {
   createdAt: string;
 }
 
+/** Personne ayant accès au suivi d'un bébé. */
+export interface Member {
+  userId: string;
+  email: string;
+  /** « owner » : a créé le suivi, peut retirer les autres. */
+  role: 'owner' | 'parent';
+  joinedAt: string;
+}
+
 export interface Invitation {
   id: string;
   babyId: string;

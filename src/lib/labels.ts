@@ -22,15 +22,18 @@ export const fmtMl = (ml: number) => `${ml.toLocaleString('fr-FR')}\u00a0ml`;
 export const fmtLiters = (ml: number) =>
   `${(ml / 1000).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\u00a0L`;
 
+/** Cumul de biberons : « 510 ml » sous le litre (plus parlant que « 0,51 L »), « 1,25 L » au-delà. */
+export const fmtVolume = (ml: number) => (ml < 1000 ? fmtMl(ml) : fmtLiters(ml));
+
 const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
 
-/** Résumé d'un type d'événement : « 2 biberons · 180 ml bus ». La quantité d'un biberon est toujours la quantité bue. */
+/** Résumé d'un type d'événement : « 2 biberons · 180 ml ». La quantité d'un biberon est toujours la quantité bue. */
 export function summaryText(kind: EventKind, s: Summary): string {
   switch (kind) {
     case 'breast':
       return plural(s.breastCount, 'tétée');
     case 'bottle':
-      return plural(s.bottleCount, 'biberon') + (s.bottleMl > 0 ? ` · ${fmtMl(s.bottleMl)}\u00a0bus` : '');
+      return plural(s.bottleCount, 'biberon') + (s.bottleMl > 0 ? ` · ${fmtVolume(s.bottleMl)}` : '');
     case 'diaper':
       return plural(s.diaperCount, 'couche');
     case 'sleep':

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { babyAge, dayBounds, dayKey, fmtDuration, fmtTimer, fromLocalInput, shiftDay, timeAgo, toLocalInput } from './time';
-import { eventsToCsv, fmtLiters, summaryText } from './labels';
+import { eventsToCsv, fmtLiters, fmtVolume, summaryText } from './labels';
 import type { Summary } from './summary';
 import { emptyEvent } from './types';
 
@@ -88,10 +88,10 @@ describe('eventsToCsv', () => {
 describe('summaryText', () => {
   const base: Summary = { breastCount: 0, breastMs: 0, bottleCount: 0, bottleMl: 0, diaperCount: 0, pee: 0, poop: 0, sleepMs: 0, sleepCount: 0 };
 
-  it('exprime la quantité de biberon en ml BUS', () => {
-    expect(summaryText('bottle', { ...base, bottleCount: 2, bottleMl: 180 })).toBe('2 biberons · 180\u00a0ml\u00a0bus');
-    expect(summaryText('bottle', { ...base, bottleCount: 1, bottleMl: 90 })).toBe('1 biberon · 90\u00a0ml\u00a0bus');
-    expect(summaryText('bottle', { ...base, bottleCount: 13, bottleMl: 1150 })).toBe('13 biberons · 1\u202f150\u00a0ml\u00a0bus');
+  it('exprime la quantité de biberon en ml sous le litre, en litres au-delà (sans « bus »)', () => {
+    expect(summaryText('bottle', { ...base, bottleCount: 2, bottleMl: 180 })).toBe('2 biberons · 180\u00a0ml');
+    expect(summaryText('bottle', { ...base, bottleCount: 1, bottleMl: 90 })).toBe('1 biberon · 90\u00a0ml');
+    expect(summaryText('bottle', { ...base, bottleCount: 13, bottleMl: 1150 })).toBe('13 biberons · 1,15\u00a0L');
   });
 
   it('n\'affiche pas de quantité quand elle est inconnue, et accorde le pluriel', () => {
@@ -99,6 +99,16 @@ describe('summaryText', () => {
     expect(summaryText('breast', { ...base, breastCount: 0 })).toBe('0 tétée');
     expect(summaryText('diaper', { ...base, diaperCount: 3 })).toBe('3 couches');
     expect(summaryText('sleep', base)).toBe('0 min de sommeil');
+  });
+});
+
+describe('fmtVolume', () => {
+  it('ml sous le litre, litres à partir de 1 L', () => {
+    expect(fmtVolume(90)).toBe('90\u00a0ml');
+    expect(fmtVolume(510)).toBe('510\u00a0ml');
+    expect(fmtVolume(999)).toBe('999\u00a0ml');
+    expect(fmtVolume(1000)).toBe('1,00\u00a0L');
+    expect(fmtVolume(1250)).toBe('1,25\u00a0L');
   });
 });
 
