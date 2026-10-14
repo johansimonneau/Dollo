@@ -8,6 +8,8 @@ export function translateAuthError(message: string): string {
   if (m.includes('token has expired') || m.includes('otp_expired') || m.includes('invalid or has expired')) {
     return 'Code invalide ou expiré. Demandez-en un nouveau.';
   }
+  if (m.includes('should be different from the old password')) return "Choisissez un mot de passe différent de l'ancien.";
+  if (m.includes('auth session missing')) return 'Lien expiré : refaites une demande « Mot de passe oublié ».';
   if (m.includes('only request this after')) return 'Patientez environ une minute avant de redemander un code.';
   if (m.includes('email rate limit') || m.includes('rate limit') || m.includes('too many')) {
     return "Trop d'e-mails envoyés pour le moment. Réessayez dans quelques minutes.";
