@@ -117,9 +117,9 @@ export function createLocalStore(): Store {
       return read().events.filter((e) => e.babyId === babyId && new Date(e.startedAt).getTime() >= since);
     },
 
-    async addEvent(event: NewEvent) {
+    async addEvent(event: NewEvent, id?: string) {
       const data = read();
-      const created: BabyEvent = { ...event, id: crypto.randomUUID() };
+      const created: BabyEvent = { ...event, id: id ?? crypto.randomUUID() };
       write({ ...data, events: [...data.events, created] });
       notify();
       return created;

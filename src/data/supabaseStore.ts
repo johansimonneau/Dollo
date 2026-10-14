@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Baby, BabyEvent, BreastSide, DiaperType, EventKind, Invitation, InviteRole, Member, NewEvent, Role } from '../lib/types';
 import { DEFAULT_PREFS } from '../../supabase/functions/_shared/reminders';
-import { StoreError, type BabyInput, type Store } from './store';
+import { isNetworkFailure, NetworkError, StoreError, type BabyInput, type Store } from './store';
 
 interface BabyRow {
   id: string;
@@ -96,6 +96,7 @@ const DB_MESSAGES: [string, string][] = [
 ];
 
 function fail(error: { message: string; code?: string }, fallback: string): never {
+  if (isNetworkFailure(error.message)) throw new NetworkError();
   const m = error.message.toLowerCase();
   const known = DB_MESSAGES.find(([needle]) => m.includes(needle));
   throw new StoreError(known ? known[1] : error.message || fallback);
@@ -245,9 +246,20 @@ export function createSupabaseStore(client: SupabaseClient): Store {
       return (data as EventRow[]).map(toEvent);
     },
 
-    async addEvent(event) {
-      const { data, error } = await client.from('events').insert(toRow(event)).select().single();
-      if (error) fail(error, 'Enregistrement impossible.');
+    async addEvent(event, id) {
+      const { data, error } = await client
+        .from('events')
+        .insert({ ...toRow(event), ...(id ? { id } : {}) })
+        .select()
+        .single();
+      if (error) {
+        // Saisie hors ligne rejouée alors qu'elle était déjà arrivée (réponse perdue) : pas de doublon.
+        if (id && error.code === '23505') {
+          const existing = await client.from('events').select('*').eq('id', id).single();
+          if (!existing.error) return toEvent(existing.data as EventRow);
+        }
+        fail(error, 'Enregistrement impossible.');
+      }
       return toEvent(data as EventRow);
     },
 

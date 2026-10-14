@@ -48,7 +48,8 @@ export interface Store {
   savePushSubscription(sub: PushSubscriptionData): Promise<void>;
   deletePushSubscription(endpoint: string): Promise<void>;
   listEvents(babyId: string, sinceIso: string): Promise<BabyEvent[]>;
-  addEvent(event: NewEvent): Promise<BabyEvent>;
+  /** `id` : identifiant choisi par l'appareil (saisie hors ligne rejouée plus tard sans doublon). */
+  addEvent(event: NewEvent, id?: string): Promise<BabyEvent>;
   updateEvent(id: string, patch: Partial<NewEvent>): Promise<BabyEvent>;
   deleteEvent(id: string): Promise<void>;
   /** Appelle `onChange` quand les données ont changé ailleurs (autre parent, autre onglet). */
@@ -56,6 +57,18 @@ export interface Store {
 }
 
 export class StoreError extends Error {}
+
+/** Pas de réseau (ou serveur injoignable) : l'action peut être rejouée plus tard sans risque. */
+export class NetworkError extends StoreError {
+  constructor() {
+    super('Pas de connexion. Vos saisies sont gardées sur le téléphone et partiront au retour du réseau.');
+  }
+}
+
+/** Erreur d'un `fetch` qui n'a pas abouti, selon les navigateurs (Chrome, Safari, Firefox). */
+export function isNetworkFailure(message: string): boolean {
+  return /failed to fetch|load failed|networkerror|network request failed|fetch failed/i.test(message) || (typeof navigator !== 'undefined' && navigator.onLine === false);
+}
 
 export function errorMessage(e: unknown): string {
   if (e instanceof Error && e.message) return e.message;

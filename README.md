@@ -108,6 +108,10 @@ Dans l'app, un bandeau « C'est bientôt l'heure de manger » s'affiche toujours
 
 Sans les étapes 2 à 5, les rappels restent affichés dans l'app (bandeaux), sans notification.
 
+## Hors ligne
+
+Sans réseau (chambre sans signal, métro), Dollo s'ouvre avec les dernières données vues, et **on continue à noter** : chaque saisie s'affiche tout de suite et est gardée sur le téléphone. Un bandeau « Hors connexion · 2 saisies en attente » l'indique. Au retour du réseau, les saisies partent toutes seules, dans l'ordre et **sans doublon** : l'identifiant est choisi par le téléphone, et un envoi dont la réponse s'est perdue n'est pas recréé. Une saisie corrigée ou supprimée hors ligne n'envoie que le résultat final. Si le serveur refuse une saisie (accès retiré entre-temps, événement supprimé par l'autre parent), elle est abandonnée et un message le signale. La file est propre à chaque compte (`src/data/offlineStore.ts`).
+
 ## Mises à jour sans frustration
 
 - **Aucune interruption** : une nouvelle version se télécharge en arrière-plan et ne s'applique qu'au lancement (avant toute interaction) ou quand l'app passe en arrière-plan — jamais pendant une saisie (`src/lib/updates.ts`). Une app restée ouverte vérifie les nouveautés toutes les heures et à chaque retour au premier plan.
@@ -117,8 +121,7 @@ Sans les étapes 2 à 5, les rappels restent affichés dans l'app (bandeaux), sa
 
 ## Limites connues
 
-- **Pas de file d'attente hors-ligne en mode cloud** : l'interface se charge sans réseau, mais une écriture faite sans connexion échoue avec un message au lieu d'être mise en file. À traiter en priorité avant un usage réel (wifi capricieux la nuit).
-- Pas de notifications push (rappel de tétée, fenêtre de sieste) ni de courbes de croissance.
+- Hors ligne, seules les saisies d'événements sont mises en file ; inviter, régler les rappels ou modifier le profil demandent du réseau.
 - Les données du mode local ne sont pas migrées automatiquement vers le compte cloud.
 
 ---

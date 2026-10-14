@@ -1,6 +1,7 @@
 import { useEffect, useState, type JSX } from 'react';
 import { DEFAULT_PREFS, type ReminderPrefs } from '../supabase/functions/_shared/reminders';
 import { syncPush } from './lib/push';
+import type { OfflineStore, SyncState } from './data/offlineStore';
 import { EventSheet, type EventData } from './components/EventSheet';
 import { Icon } from './components/icons';
 import { BottleSheet, DiaperSheet } from './components/QuickSheets';
@@ -54,8 +55,28 @@ interface Props {
 const NANNY_DAYS = 2;
 
 export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBabyUpdated, onAddBaby, onSignOut }: Props) {
+  const toast = useToast();
   const nanny = baby.role === 'nanny';
   const tabs = nanny ? TABS.filter((t) => t.id !== 'stats') : TABS;
+  // Hors ligne : saisies en attente d'envoi, et saisies refusées au retour du réseau.
+  const [sync, setSync] = useState<SyncState>(() => ('syncState' in store ? (store as OfflineStore).syncState() : { pending: 0, offline: false }));
+  useEffect(() => {
+    if (!('onSyncChange' in store)) return;
+    const s = store as OfflineStore;
+    setSync(s.syncState());
+    const off = s.onSyncChange(setSync);
+    const onDropped = (e: Event) =>
+      toast.show(`${(e as CustomEvent<number>).detail} saisie(s) faite(s) hors ligne n'ont pas pu être enregistrée(s) (accès retiré ou événement supprimé entre-temps).`, {
+        tone: 'error',
+        durationMs: 10_000,
+      });
+    window.addEventListener('dollo:sync-dropped', onDropped);
+    return () => {
+      off();
+      window.removeEventListener('dollo:sync-dropped', onDropped);
+    };
+  }, [store, toast]);
+
   // Rappels de l'utilisateur pour ce bébé (bandeaux sur « Aujourd'hui », réglages).
   const [reminderPrefs, setReminderPrefs] = useState<ReminderPrefs>(DEFAULT_PREFS);
   useEffect(() => {
@@ -91,7 +112,6 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
       alive = false;
     };
   }, [store, baby.id, nanny]);
-  const toast = useToast();
   const { events, loading, error, reload, add, update, remove } = useEvents(store, baby.id);
   const [tab, setTab] = useState<Tab>('today');
   const [sheet, setSheet] = useState<SheetState>(null);
@@ -236,6 +256,17 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
           </span>
         )}
       </header>
+
+      {(sync.offline || sync.pending > 0) && (
+        <div className="banner offline" role="status">
+          <span>
+            {sync.offline ? 'Hors connexion' : 'Envoi en cours'}
+            {sync.pending > 0
+              ? ` · ${sync.pending} saisie${sync.pending > 1 ? 's' : ''} en attente, envoyée${sync.pending > 1 ? 's' : ''} automatiquement au retour du réseau.`
+              : ' · vous pouvez continuer à noter, tout sera envoyé au retour du réseau.'}
+          </span>
+        </div>
+      )}
 
       {error && (
         <div className="banner" role="alert">

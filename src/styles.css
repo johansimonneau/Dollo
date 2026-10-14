@@ -348,3 +348,4 @@ ul { list-style: none; margin: 0; padding: 0; }
 .reminder-banner.kind-diaper { background: var(--diaper-bg); color: var(--diaper-fg); }
 .reminders { display: flex; flex-direction: column; gap: 10px; }
 .next-feed { margin: -4px 0 10px; color: var(--muted); font-weight: 600; }
+.banner.offline { background: var(--sleep-bg); color: var(--sleep-fg); }
