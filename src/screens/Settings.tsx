@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react';
+import type { ReminderPrefs } from '../../supabase/functions/_shared/reminders';
 import { InviteByEmail } from '../components/InviteByEmail';
+import { RemindersSettings } from '../components/RemindersSettings';
 import { Members } from '../components/Members';
 import { useToast } from '../components/toast';
 import { errorMessage, type Store } from '../data/store';
@@ -10,6 +12,8 @@ import type { Baby, BabyEvent } from '../lib/types';
 interface Props {
   /** Accès nounou : ni profil, ni partage, ni export. */
   nanny?: boolean;
+  reminderPrefs: ReminderPrefs;
+  onReminderPrefsChange: (prefs: ReminderPrefs) => void;
   store: Store;
   baby: Baby;
   events: BabyEvent[];
@@ -23,7 +27,7 @@ interface Props {
 /** AB12CD34EF → AB12C-D34EF, plus lisible à dicter. */
 const prettyCode = (code: string) => (code.length === 10 ? `${code.slice(0, 5)}-${code.slice(5)}` : code);
 
-export function Settings({ nanny = false, store, baby, events, email, now, onBabyUpdated, onAddBaby, onSignOut }: Props) {
+export function Settings({ nanny = false, reminderPrefs, onReminderPrefsChange, store, baby, events, email, now, onBabyUpdated, onAddBaby, onSignOut }: Props) {
   const toast = useToast();
   const [name, setName] = useState(baby.name);
   const [birthDate, setBirthDate] = useState(baby.birthDate ?? '');
@@ -97,9 +101,10 @@ export function Settings({ nanny = false, store, baby, events, email, now, onBab
 
   const age = babyAge(baby.birthDate, now);
 
-  // Installation et compte : communs aux parents et à la nounou.
+  // Rappels, installation et compte : communs aux parents et à la nounou.
   const common = (
     <>
+      <RemindersSettings store={store} baby={baby} prefs={reminderPrefs} onPrefsChange={onReminderPrefsChange} />
       <section className="card pad" aria-label="Installer l'application">
         <h2 className="section-title flush">Installer sur l'écran d'accueil</h2>
         <p className="hint">

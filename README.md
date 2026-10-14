@@ -38,7 +38,7 @@ Sur [supabase.com](https://supabase.com) → *New project*. Choisissez une **ré
 > Utilisez un projet vierge, pas une base qui sert déjà à autre chose : la migration crée les tables `babies`, `baby_members`, `events` et `baby_invitations` dans le schéma `public`.
 
 ### 2. Créer les tables
-*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`, `0005_nanny.sql`.
+*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`, `0005_nanny.sql`, `0006_reminders.sql`.
 
 ### 3. Récupérer les deux clés publiques
 *Project Settings → API Keys* (ou *API*) :
@@ -88,6 +88,25 @@ Ne les lancez jamais sur votre base Supabase : le script crée de faux rôles et
 ## Déploiement
 
 Projet Vite standard : sur Vercel, framework *Vite*, commande `npm run build`, dossier `dist`.
+
+## Rappels et notifications
+
+*Réglages → Rappels* (pour chaque personne et chaque bébé) :
+- **Prochain repas** : 2 h à 4 h après le *début* de la dernière tétée ou du dernier biberon ;
+- **Pas de couche mouillée** depuis 4, 6 ou 8 h (seules les couches pipi ou pipi + caca comptent) ;
+- **Pas de notification la nuit** (22 h – 7 h, heure du téléphone) ;
+- **Activer les notifications sur ce téléphone**. Sur iPhone, il faut que Dollo soit ajoutée à l'écran d'accueil (exigence d'Apple).
+
+Dans l'app, un bandeau « C'est bientôt l'heure de manger » s'affiche toujours. Les notifications (app fermée) sont envoyées par la fonction serveur `supabase/functions/send-reminders`, une seule fois par repas ou par couche. Pas de notification pour un suivi en pause depuis plus de 12 h, et pas de notification à un appareil déconnecté, désinstallé, ou à une personne retirée du suivi.
+
+**Mise en service (une fois)** :
+1. Appliquer `0006_reminders.sql`.
+2. Générer une paire de clés VAPID (par ex. `npx web-push generate-vapid-keys`).
+3. Déployer la fonction `send-reminders` et lui donner les secrets `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (`mailto:votre@adresse`).
+4. Vercel : variable `VAPID_PUBLIC_KEY` (la clé **publique** seulement), puis redéployer.
+5. Planifier l'envoi toutes les 5 minutes : dans le SQL Editor, exécuter le bloc commenté à la fin de `0006_reminders.sql`, avec l'adresse du projet et la clé publique (anon / publishable).
+
+Sans les étapes 2 à 5, les rappels restent affichés dans l'app (bandeaux), sans notification.
 
 ## Mises à jour sans frustration
 

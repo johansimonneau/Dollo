@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Baby, BabyEvent, BreastSide, DiaperType, EventKind, Invitation, InviteRole, Member, NewEvent, Role } from '../lib/types';
+import { DEFAULT_PREFS } from '../../supabase/functions/_shared/reminders';
 import { StoreError, type BabyInput, type Store } from './store';
 
 interface BabyRow {
@@ -192,6 +193,44 @@ export function createSupabaseStore(client: SupabaseClient): Store {
       const { data, error } = await client.rpc('accept_invitations');
       if (error) fail(error, "Impossible de rejoindre le bébé.");
       return ((data ?? []) as BabyRow[]).map(toBaby);
+    },
+
+    async getReminderPrefs(babyId) {
+      const { data, error } = await client
+        .from('reminder_settings')
+        .select('feed_every_min, diaper_dry_hours, quiet_night')
+        .eq('baby_id', babyId)
+        .maybeSingle();
+      if (error) fail(error, 'Chargement des rappels impossible.');
+      if (!data) return { ...DEFAULT_PREFS };
+      return { feedEveryMin: data.feed_every_min, diaperDryHours: data.diaper_dry_hours, quietNight: data.quiet_night };
+    },
+
+    async saveReminderPrefs(babyId, prefs, timeZone) {
+      // user_id explicite : nécessaire au « on conflict (user_id, baby_id) ». La RLS vérifie qu'il s'agit bien de soi.
+      const { data: auth } = await client.auth.getSession();
+      const { error } = await client.from('reminder_settings').upsert(
+        {
+          user_id: auth.session?.user.id,
+          baby_id: babyId,
+          feed_every_min: prefs.feedEveryMin,
+          diaper_dry_hours: prefs.diaperDryHours,
+          quiet_night: prefs.quietNight,
+          time_zone: timeZone,
+        },
+        { onConflict: 'user_id,baby_id' },
+      );
+      if (error) fail(error, 'Enregistrement des rappels impossible.');
+    },
+
+    async savePushSubscription(sub) {
+      const { error } = await client.from('push_subscriptions').upsert({ endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth }, { onConflict: 'endpoint' });
+      if (error) fail(error, "Impossible d'activer les notifications.");
+    },
+
+    async deletePushSubscription(endpoint) {
+      const { error } = await client.from('push_subscriptions').delete().eq('endpoint', endpoint);
+      if (error) fail(error, 'Impossible de désactiver les notifications.');
     },
 
     async listEvents(babyId, sinceIso) {

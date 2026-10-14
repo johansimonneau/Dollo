@@ -6,6 +6,7 @@ import { recoveryInUrl, supabase } from './data/supabase';
 import { createSupabaseStore } from './data/supabaseStore';
 import { BabyGate, Splash } from './BabyGate';
 import { AuthScreen, NewPasswordScreen } from './screens/Auth';
+import { disablePush } from './lib/push';
 
 export default function App() {
   const client = supabase;
@@ -39,7 +40,15 @@ export default function App() {
         store={store}
         email={session?.user.email ?? null}
         userId={session?.user.id ?? null}
-        onSignOut={client ? () => void client.auth.signOut() : null}
+        onSignOut={
+          client
+            ? () =>
+                // Un téléphone déconnecté ne doit plus recevoir les rappels de ce compte.
+                void disablePush(store)
+                  .catch(() => undefined)
+                  .finally(() => void client.auth.signOut())
+            : null
+        }
       />
     </ToastProvider>
   );

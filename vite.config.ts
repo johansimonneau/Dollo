@@ -82,12 +82,15 @@ export default defineConfig(({ mode }) => {
             { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
           ],
         },
-        workbox: { navigateFallback: '/index.html' },
+        // push-sw.js : affichage des notifications de rappel et ouverture de l'app au toucher.
+        workbox: { navigateFallback: '/index.html', importScripts: ['push-sw.js'] },
       }),
     ],
     define: {
       __SUPABASE_URL__: JSON.stringify(normalizeSupabaseUrl(pick('VITE_SUPABASE_URL', 'SUPABASE_URL'))),
       __SUPABASE_ANON_KEY__: JSON.stringify(publicKey),
+      // Publique par conception (la clé PRIVÉE n'existe que dans les secrets de la fonction send-reminders).
+      __VAPID_PUBLIC_KEY__: JSON.stringify(pick('VITE_VAPID_PUBLIC_KEY', 'VAPID_PUBLIC_KEY').trim()),
     },
     test: { environment: 'node', include: ['src/**/*.test.ts'], setupFiles: ['src/test-setup.ts'] },
   };

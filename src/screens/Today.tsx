@@ -1,3 +1,4 @@
+import { dueReminders, nextFeedAt, type ReminderPrefs } from '../../supabase/functions/_shared/reminders';
 import { Icon } from '../components/icons';
 import { eventTitle, fmtVolume, SIDE_LABEL } from '../lib/labels';
 import { summarize, lastOf, ongoing, suggestNextSide } from '../lib/summary';
@@ -19,15 +20,18 @@ interface Props {
   events: BabyEvent[];
   now: number;
   actions: TodayActions;
+  reminderPrefs?: ReminderPrefs;
 }
 
-export function Today({ events, now, actions }: Props) {
+export function Today({ events, now, actions, reminderPrefs }: Props) {
   const running = ongoing(events);
   const nextSide = suggestNextSide(events);
   const sleeping = running.find((e) => e.kind === 'sleep');
   // Fenêtre glissante de 24 h. La borne de fin dépasse `now` : l'horloge de l'écran n'avance que toutes les 15 s, et un
   // événement saisi juste après un tic (heure réelle > `now`) serait sinon exclu jusqu'au prochain.
   const day = summarize(events, now - DAY, now + HOUR, now);
+  const due = reminderPrefs ? dueReminders(events, reminderPrefs, now) : [];
+  const nextFeed = reminderPrefs ? nextFeedAt(events, reminderPrefs) : null;
 
   return (
     <div className="screen">
@@ -59,6 +63,22 @@ export function Today({ events, now, actions }: Props) {
           </section>
         );
       })}
+
+      {due.length > 0 && (
+        <section className="reminders" aria-label="Rappels">
+          {due.map((r) => (
+            <p key={r.kind} className={`reminder-banner kind-${r.kind === 'feed' ? 'bottle' : 'diaper'}`} role="status">
+              {r.kind === 'feed' ? <Icon.Bottle size={24} /> : <Icon.Diaper size={24} />}
+              <span>
+                {r.kind === 'feed' ? "C'est bientôt l'heure de manger" : 'Pas de couche mouillée depuis un moment'}
+                <small>
+                  {r.kind === 'feed' ? 'Dernier repas' : 'Dernière couche mouillée'} il y a {fmtDuration(now - new Date(r.lastAt).getTime())}
+                </small>
+              </span>
+            </p>
+          ))}
+        </section>
+      )}
 
       <section aria-label="Enregistrer rapidement">
         <h2 className="section-title">Enregistrer</h2>
@@ -98,6 +118,11 @@ export function Today({ events, now, actions }: Props) {
 
       <section aria-label="Depuis la dernière fois">
         <h2 className="section-title">Depuis la dernière fois</h2>
+        {nextFeed !== null && nextFeed > now && (
+          <p className="next-feed">
+            Prochain repas vers <strong>{fmtClock(new Date(nextFeed).toISOString())}</strong>
+          </p>
+        )}
         <ul className="since-list">
           <SinceRow kind="breast" event={lastOf(events, 'breast')} now={now} onClick={actions.edit} />
           <SinceRow kind="bottle" event={lastOf(events, 'bottle')} now={now} onClick={actions.edit} />

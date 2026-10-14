@@ -1,4 +1,6 @@
 import { useEffect, useState, type JSX } from 'react';
+import { DEFAULT_PREFS, type ReminderPrefs } from '../supabase/functions/_shared/reminders';
+import { syncPush } from './lib/push';
 import { EventSheet, type EventData } from './components/EventSheet';
 import { Icon } from './components/icons';
 import { BottleSheet, DiaperSheet } from './components/QuickSheets';
@@ -54,6 +56,26 @@ const NANNY_DAYS = 2;
 export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBabyUpdated, onAddBaby, onSignOut }: Props) {
   const nanny = baby.role === 'nanny';
   const tabs = nanny ? TABS.filter((t) => t.id !== 'stats') : TABS;
+  // Rappels de l'utilisateur pour ce bébé (bandeaux sur « Aujourd'hui », réglages).
+  const [reminderPrefs, setReminderPrefs] = useState<ReminderPrefs>(DEFAULT_PREFS);
+  useEffect(() => {
+    let alive = true;
+    setReminderPrefs(DEFAULT_PREFS);
+    store
+      .getReminderPrefs(baby.id)
+      .then((p) => alive && setReminderPrefs(p))
+      .catch(() => {
+        /* base pas encore migrée : pas de rappels */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [store, baby.id]);
+  // L'abonnement aux notifications de cet appareil suit le compte connecté (renouvellement, changement de compte).
+  useEffect(() => {
+    if (store.mode === 'cloud') void syncPush(store).catch(() => undefined);
+  }, [store, userId]);
+
   // Côté parents : repérer ce qu'a noté la nounou (la liste des membres n'est lisible que par les parents).
   const [nannyIds, setNannyIds] = useState<Set<string>>(new Set());
   useEffect(() => {
@@ -229,6 +251,7 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
           <Today
             events={events}
             now={now}
+            reminderPrefs={reminderPrefs}
             actions={{
               startBreast: (s) => void startBreast(s),
               stop: (e) => void stop(e),
@@ -253,6 +276,8 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
         {tab === 'settings' && (
           <Settings
             nanny={nanny}
+            reminderPrefs={reminderPrefs}
+            onReminderPrefsChange={setReminderPrefs}
             store={store}
             baby={baby}
             events={events}

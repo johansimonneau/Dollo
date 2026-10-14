@@ -339,3 +339,12 @@ ul { list-style: none; margin: 0; padding: 0; }
 @media (prefers-color-scheme: dark) { .toast { background: #eaf0ee; color: #14181b; } .toast-action { color: #1f6b62; } .toast-error { background: #ffb4a9; color: #3a0d08; } .toast-error .toast-action { color: #5a150d; } }
 .invite-role { margin-bottom: 10px; }
 .by-nanny { color: var(--sleep-fg); font-weight: 650; }
+.check { display: flex; align-items: center; gap: 10px; min-height: 44px; font-weight: 600; }
+.check input { width: 22px; height: 22px; accent-color: var(--accent); }
+.push-box { margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.reminder-banner { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 18px; font-weight: 650; line-height: 1.35; }
+.reminder-banner small { display: block; font-weight: 500; opacity: 0.85; }
+.reminder-banner.kind-bottle { background: var(--bottle-bg); color: var(--bottle-fg); }
+.reminder-banner.kind-diaper { background: var(--diaper-bg); color: var(--diaper-fg); }
+.reminders { display: flex; flex-direction: column; gap: 10px; }
+.next-feed { margin: -4px 0 10px; color: var(--muted); font-weight: 600; }

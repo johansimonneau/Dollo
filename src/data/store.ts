@@ -1,4 +1,12 @@
+import type { ReminderPrefs } from '../../supabase/functions/_shared/reminders';
 import type { Baby, BabyEvent, Invitation, InviteRole, Member, NewEvent } from '../lib/types';
+
+/** Abonnement Web Push d'un appareil (PushSubscription.toJSON()). */
+export interface PushSubscriptionData {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}
 
 export interface BabyInput {
   name: string;
@@ -33,6 +41,12 @@ export interface Store {
   removeMember(babyId: string, userId: string): Promise<void>;
   /** À appeler à la connexion : rejoint les bébés pour lesquels l'adresse de l'utilisateur a été invitée. */
   acceptInvitations(): Promise<Baby[]>;
+  /** Réglages de rappels de l'utilisateur pour ce bébé (valeurs par défaut s'il n'en a pas). */
+  getReminderPrefs(babyId: string): Promise<ReminderPrefs>;
+  saveReminderPrefs(babyId: string, prefs: ReminderPrefs, timeZone: string): Promise<void>;
+  /** Enregistre l'appareil pour recevoir les notifications (cloud uniquement). */
+  savePushSubscription(sub: PushSubscriptionData): Promise<void>;
+  deletePushSubscription(endpoint: string): Promise<void>;
   listEvents(babyId: string, sinceIso: string): Promise<BabyEvent[]>;
   addEvent(event: NewEvent): Promise<BabyEvent>;
   updateEvent(id: string, patch: Partial<NewEvent>): Promise<BabyEvent>;

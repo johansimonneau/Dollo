@@ -1,7 +1,10 @@
+import { DEFAULT_PREFS, type ReminderPrefs } from '../../supabase/functions/_shared/reminders';
 import type { Baby, BabyEvent, NewEvent } from '../lib/types';
 import { StoreError, type BabyInput, type Store } from './store';
 
 const KEY = 'dollo:v1';
+/** Réglages de rappels en mode local (bandeaux dans l'app uniquement). */
+const PREFS_KEY = 'dollo:reminders';
 
 interface Data {
   babies: Baby[];
@@ -82,6 +85,27 @@ export function createLocalStore(): Store {
 
     async removeMember() {
       throw new StoreError('Le partage entre parents nécessite la synchronisation en ligne (Supabase).');
+    },
+
+    async getReminderPrefs(babyId) {
+      try {
+        const raw = localStorage.getItem(`${PREFS_KEY}:${babyId}`);
+        return raw ? { ...DEFAULT_PREFS, ...(JSON.parse(raw) as Partial<ReminderPrefs>) } : { ...DEFAULT_PREFS };
+      } catch {
+        return { ...DEFAULT_PREFS };
+      }
+    },
+
+    async saveReminderPrefs(babyId, prefs) {
+      localStorage.setItem(`${PREFS_KEY}:${babyId}`, JSON.stringify(prefs));
+    },
+
+    async savePushSubscription() {
+      throw new StoreError('Les notifications nécessitent la synchronisation en ligne (Supabase).');
+    },
+
+    async deletePushSubscription() {
+      /* aucune notification en mode local */
     },
 
     async acceptInvitations() {
