@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { dailySeries, groupByDay, lastOf, ongoing, suggestNextSide, summarizeDay } from './summary';
+import { dailySeries, groupByDay, lastOf, ongoing, suggestNextSide, summarize, summarizeDay } from './summary';
 import { emptyEvent, type BabyEvent } from './types';
-import { HOUR, MINUTE } from './time';
+import { DAY, HOUR, MINUTE } from './time';
 
 let n = 0;
 const at = (day: number, h: number, m = 0) => new Date(2026, 9, day, h, m).toISOString();
@@ -118,5 +118,31 @@ describe('groupByDay', () => {
 
   it('renvoie une liste vide sans événement', () => {
     expect(groupByDay([])).toEqual([]);
+  });
+});
+
+describe('cumul glissant sur 24 h (boutons Biberon / Dodo)', () => {
+  const now = new Date(2026, 9, 13, 12, 0).getTime();
+  const ago = (ms: number) => new Date(now - ms).toISOString();
+
+  it("cumule les ml bus et le sommeil sur 24 h, en excluant ce qui est plus ancien et en découpant ce qui chevauche", () => {
+    const events = [
+      ev({ kind: 'bottle', startedAt: ago(2 * HOUR), amountMl: 90 }),
+      ev({ kind: 'bottle', startedAt: ago(10 * HOUR), amountMl: 120 }),
+      ev({ kind: 'bottle', startedAt: ago(30 * HOUR), amountMl: 100 }), // hors fenêtre
+      ev({ kind: 'sleep', startedAt: ago(4.5 * HOUR), endedAt: ago(3 * HOUR) }), // 1 h 30
+      ev({ kind: 'sleep', startedAt: ago(25 * HOUR), endedAt: ago(22 * HOUR) }), // chevauche : 2 h comptent
+    ];
+    const s = summarize(events, now - DAY, now + HOUR, now);
+    expect(s.bottleMl).toBe(210);
+    expect(s.bottleCount).toBe(2);
+    expect(s.sleepMs).toBe(3.5 * HOUR);
+  });
+
+  it("compte un biberon saisi APRÈS le dernier tic de l'horloge de l'écran (heure réelle > now)", () => {
+    // L'écran n'a pas encore avancé : `now` retarde de 10 s sur l'heure du biberon qu'on vient d'enregistrer.
+    const justSaved = ev({ kind: 'bottle', startedAt: new Date(now + 10_000).toISOString(), amountMl: 70 });
+    expect(summarize([justSaved], now - DAY, now + 1, now).bottleMl).toBe(0); // ancienne borne : le biberon était exclu
+    expect(summarize([justSaved], now - DAY, now + HOUR, now).bottleMl).toBe(70); // borne actuelle : compté tout de suite
   });
 });

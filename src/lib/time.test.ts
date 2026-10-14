@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { babyAge, dayBounds, dayKey, fmtDuration, fmtTimer, fromLocalInput, shiftDay, timeAgo, toLocalInput } from './time';
-import { eventsToCsv, summaryText } from './labels';
+import { eventsToCsv, fmtLiters, summaryText } from './labels';
 import type { Summary } from './summary';
 import { emptyEvent } from './types';
 
@@ -99,5 +99,14 @@ describe('summaryText', () => {
     expect(summaryText('breast', { ...base, breastCount: 0 })).toBe('0 tétée');
     expect(summaryText('diaper', { ...base, diaperCount: 3 })).toBe('3 couches');
     expect(summaryText('sleep', base)).toBe('0 min de sommeil');
+  });
+});
+
+describe('fmtLiters', () => {
+  it('exprime le cumul de biberons en litres, avec 2 décimales', () => {
+    expect(fmtLiters(720)).toBe('0,72\u00a0L');
+    expect(fmtLiters(1250)).toBe('1,25\u00a0L');
+    expect(fmtLiters(90)).toBe('0,09\u00a0L');
+    expect(fmtLiters(0)).toBe('0,00\u00a0L');
   });
 });

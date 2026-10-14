@@ -199,6 +199,8 @@ ul { list-style: none; margin: 0; padding: 0; }
 }
 .quick:active { transform: scale(0.96); }
 .quick-label { color: inherit; font-size: 1.1rem; font-weight: 750; }
+.quick-text { display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.15; text-align: center; }
+.quick-sub { font-size: 0.82rem; font-weight: 700; opacity: 0.92; font-variant-numeric: tabular-nums; }
 .quick.suggested { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6px var(--k), 0 10px 20px color-mix(in srgb, var(--k) 38%, transparent); }
 .quick-tag {
   position: absolute; top: 9px; right: 11px; padding: 2px 9px; border-radius: 99px;
