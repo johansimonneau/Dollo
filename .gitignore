@@ -7,3 +7,5 @@ dev-dist
 *.local
 .DS_Store
 test-results
+dist-mock
+*.tsbuildinfo
