@@ -3,23 +3,28 @@ import { supabase } from '../data/supabase';
 import { errorMessage } from '../data/store';
 import { translateAuthError } from '../lib/authErrors';
 
-type Mode = 'signin' | 'signup' | 'code';
-type CodeStep = 'email' | 'verify';
+type Mode = 'signup' | 'signin';
 
+const MIN_PASSWORD = 8;
+
+/**
+ * Deux onglets : « Créer un compte » (e-mail, mot de passe, confirmation) et « Se connecter » (e-mail, mot de passe).
+ * Après l'inscription, Supabase envoie un lien de confirmation : on l'explique clairement avec la possibilité de le renvoyer.
+ */
 export function AuthScreen() {
-  const [mode, setMode] = useState<Mode>('signin');
-  const [codeStep, setCodeStep] = useState<CodeStep>('email');
+  const [mode, setMode] = useState<Mode>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [code, setCode] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  /** Adresse en attente de confirmation (affiche l'écran « vérifiez vos e-mails »). */
+  const [pending, setPending] = useState<string | null>(null);
 
-  const reset = (next: Mode) => {
+  const switchMode = (next: Mode) => {
     setMode(next);
-    setCodeStep('email');
-    setCode('');
+    setConfirm('');
     setError(null);
     setInfo(null);
   };
@@ -33,52 +38,74 @@ export function AuthScreen() {
     try {
       await action();
     } catch (err) {
-      setError(translateAuthError(errorMessage(err)));
+      const raw = errorMessage(err);
+      if (raw.toLowerCase().includes('email not confirmed')) setPending(email.trim());
+      setError(translateAuthError(raw));
     } finally {
       setBusy(false);
     }
   };
 
-  const submitPassword = (e: FormEvent) => {
+  // Le lien de confirmation ramène directement dans l'app (si l'adresse est autorisée dans Supabase).
+  const redirectTo = () => `${window.location.origin}/?app`;
+
+  const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (mode === 'signup' && password.length < 8) return setError('Mot de passe trop court (8 caractères minimum).');
+    if (mode === 'signup') {
+      if (password.length < MIN_PASSWORD) return setError(`Mot de passe trop court (${MIN_PASSWORD} caractères minimum).`);
+      if (password !== confirm) return setError('Les deux mots de passe ne sont pas identiques.');
+    }
     void run(async () => {
       if (!supabase) return;
       if (mode === 'signin') {
         const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (err) throw err;
-      } else {
-        const { data, error: err } = await supabase.auth.signUp({ email: email.trim(), password });
-        if (err) throw err;
-        // Sans session, Supabase attend la confirmation de l'e-mail.
-        if (!data.session) {
-          setInfo('Compte créé. Confirmez votre adresse via le message reçu par e-mail, puis connectez-vous.');
-          setMode('signin');
-        }
+        return; // La session est reprise par App via onAuthStateChange.
       }
+      const { data, error: err } = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: redirectTo() } });
+      if (err) throw err;
+      // Sans session, Supabase attend la confirmation de l'adresse.
+      if (!data.session) setPending(email.trim());
     });
   };
 
-  const sendCode = (e?: FormEvent) => {
-    e?.preventDefault();
+  const resend = () =>
     void run(async () => {
-      if (!supabase) return;
-      const { error: err } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: true } });
+      if (!supabase || !pending) return;
+      const { error: err } = await supabase.auth.resend({ type: 'signup', email: pending, options: { emailRedirectTo: redirectTo() } });
       if (err) throw err;
-      setCodeStep('verify');
-      setInfo(`Code envoyé à ${email.trim()}. Pensez à regarder dans les courriers indésirables.`);
+      setInfo('E-mail renvoyé.');
     });
+
+  const confirmedNowSignIn = () => {
+    setPending(null);
+    setMode('signin');
+    setConfirm('');
+    setError(null);
+    setInfo(null);
   };
 
-  const verifyCode = (e: FormEvent) => {
-    e.preventDefault();
-    void run(async () => {
-      if (!supabase) return;
-      const { error: err } = await supabase.auth.verifyOtp({ email: email.trim(), token: code.replace(/\s/g, ''), type: 'email' });
-      if (err) throw err;
-      // La session est reprise par App via onAuthStateChange.
-    });
-  };
+  if (pending) {
+    return (
+      <main className="auth">
+        <div className="auth-card">
+          <h1 className="logo">Dollo</h1>
+          <h2 className="auth-title">Dernière étape : confirmez votre adresse</h2>
+          <p className="tagline">
+            Nous avons envoyé un e-mail à <strong>{pending}</strong>. Ouvrez-le et cliquez sur le lien : votre compte sera activé. Pensez à regarder dans les
+            courriers indésirables.
+          </p>
+          <Messages error={error} info={info} />
+          <button type="button" className="btn primary block" onClick={confirmedNowSignIn}>
+            C'est fait, je me connecte
+          </button>
+          <button type="button" className="link-btn" disabled={busy} onClick={resend}>
+            Je n'ai rien reçu : renvoyer l'e-mail
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="auth">
@@ -86,94 +113,60 @@ export function AuthScreen() {
         <h1 className="logo">Dollo</h1>
         <p className="tagline">Tétées, couches, siestes. Notés en un geste, partagés entre parents.</p>
 
-        {mode !== 'code' && (
-          <form onSubmit={submitPassword}>
+        <div className="segmented auth-tabs" role="group" aria-label="Compte">
+          <button type="button" aria-pressed={mode === 'signup'} onClick={() => switchMode('signup')}>
+            Créer un compte
+          </button>
+          <button type="button" aria-pressed={mode === 'signin'} onClick={() => switchMode('signin')}>
+            Se connecter
+          </button>
+        </div>
+
+        <form onSubmit={submit}>
+          <label className="field">
+            <span className="label">E-mail</span>
+            <input
+              className="input"
+              type="email"
+              autoComplete="email"
+              inputMode="email"
+              autoCapitalize="none"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span className="label">Mot de passe</span>
+            <input
+              className="input"
+              type="password"
+              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+              required
+              minLength={mode === 'signup' ? MIN_PASSWORD : undefined}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            {mode === 'signup' && <span className="hint">{MIN_PASSWORD} caractères minimum.</span>}
+          </label>
+          {mode === 'signup' && (
             <label className="field">
-              <span className="label">E-mail</span>
-              <input className="input" type="email" autoComplete="email" inputMode="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-            </label>
-            <label className="field">
-              <span className="label">Mot de passe</span>
+              <span className="label">Confirmer le mot de passe</span>
               <input
                 className="input"
                 type="password"
-                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                autoComplete="new-password"
                 required
-                minLength={mode === 'signup' ? 8 : undefined}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
               />
             </label>
-            <Messages error={error} info={info} />
-            <button type="submit" className="btn primary block" disabled={busy}>
-              {mode === 'signin' ? 'Se connecter' : 'Créer mon compte'}
-            </button>
-          </form>
-        )}
-
-        {mode === 'code' && codeStep === 'email' && (
-          <form onSubmit={sendCode}>
-            <p className="hint">Sans mot de passe : nous vous envoyons un code à 6 chiffres par e-mail. Idéal si un proche vous a invité(e).</p>
-            <label className="field">
-              <span className="label">E-mail</span>
-              <input className="input" type="email" autoComplete="email" inputMode="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-            </label>
-            <Messages error={error} info={info} />
-            <button type="submit" className="btn primary block" disabled={busy}>
-              Recevoir un code
-            </button>
-            <button type="button" className="link-btn" disabled={!email.trim()} onClick={() => setCodeStep('verify')}>
-              J'ai déjà reçu un code
-            </button>
-          </form>
-        )}
-
-        {mode === 'code' && codeStep === 'verify' && (
-          <form onSubmit={verifyCode}>
-            <label className="field">
-              <span className="label">Code reçu par e-mail</span>
-              <input
-                className="input code-input"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={12}
-                required
-                autoFocus
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/[^0-9 ]/g, ''))}
-              />
-              <span className="hint">Envoyé à {email.trim() || 'votre adresse'}.</span>
-            </label>
-            <Messages error={error} info={info} />
-            <button type="submit" className="btn primary block" disabled={busy || code.replace(/\s/g, '').length < 6}>
-              Valider
-            </button>
-            <div className="row-actions">
-              <button type="button" className="link-btn" disabled={busy} onClick={() => sendCode()}>
-                Renvoyer un code
-              </button>
-              <button type="button" className="link-btn" onClick={() => setCodeStep('email')}>
-                Changer d'adresse
-              </button>
-            </div>
-          </form>
-        )}
-
-        {mode === 'signin' && (
-          <button type="button" className="link-btn" onClick={() => reset('code')}>
-            Recevoir un code par e-mail (sans mot de passe)
+          )}
+          <Messages error={error} info={info} />
+          <button type="submit" className="btn primary block" disabled={busy}>
+            {mode === 'signup' ? 'Créer mon compte' : 'Se connecter'}
           </button>
-        )}
-        {mode !== 'code' && (
-          <button type="button" className="link-btn" onClick={() => reset(mode === 'signin' ? 'signup' : 'signin')}>
-            {mode === 'signin' ? 'Pas encore de compte ? Créer un compte' : 'Déjà un compte ? Se connecter'}
-          </button>
-        )}
-        {mode === 'code' && (
-          <button type="button" className="link-btn" onClick={() => reset('signin')}>
-            Utiliser un mot de passe
-          </button>
-        )}
+        </form>
       </div>
     </main>
   );

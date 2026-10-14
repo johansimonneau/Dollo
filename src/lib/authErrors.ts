@@ -2,8 +2,8 @@
 export function translateAuthError(message: string): string {
   const m = message.toLowerCase();
   if (m.includes('invalid login credentials')) return 'E-mail ou mot de passe incorrect.';
-  if (m.includes('email not confirmed')) return "Confirmez d'abord votre adresse e-mail (lien reçu par e-mail).";
-  if (m.includes('already registered') || m.includes('already been registered')) return 'Un compte existe déjà avec cet e-mail. Connectez-vous.';
+  if (m.includes('email not confirmed')) return "Adresse pas encore confirmée : cliquez sur le lien reçu par e-mail.";
+  if (m.includes('already registered') || m.includes('already been registered')) return 'Un compte existe déjà avec cet e-mail : utilisez « Se connecter ».';
   if (m.includes('password should be at least') || m.includes('weak password')) return 'Mot de passe trop court (8 caractères minimum).';
   if (m.includes('token has expired') || m.includes('otp_expired') || m.includes('invalid or has expired')) {
     return 'Code invalide ou expiré. Demandez-en un nouveau.';
