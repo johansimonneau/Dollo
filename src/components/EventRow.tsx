@@ -1,9 +1,8 @@
 import { eventTitle } from '../lib/labels';
 import { fmtClock, fmtDuration } from '../lib/time';
 import type { BabyEvent } from '../lib/types';
-import { Icon } from './icons';
+import { Icon, KIND_ICON } from './icons';
 
-const KIND_ICON = { breast: Icon.Breast, bottle: Icon.Bottle, diaper: Icon.Diaper, sleep: Icon.Moon } as const;
 
 export function eventSubtitle(e: BabyEvent, nowMs: number): string {
   const start = new Date(e.startedAt).getTime();

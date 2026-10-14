@@ -21,7 +21,15 @@ const KINDS: { kind: EventKind; icon: (p: { size?: number }) => JSX.Element }[] 
   { kind: 'bottle', icon: Icon.Bottle },
   { kind: 'diaper', icon: Icon.Diaper },
   { kind: 'sleep', icon: Icon.Moon },
+  { kind: 'temp', icon: Icon.Thermo },
+  { kind: 'med', icon: Icon.Pill },
 ];
+
+/** « 38,2 » ou « 38.2 » → 38.2 ; vide ou illisible → null. */
+export const parseTemp = (raw: string): number | null => {
+  const t = raw.trim().replace(',', '.');
+  return /^\d{2}(\.\d)?$/.test(t) ? Number(t) : null;
+};
 
 const minutesBetween = (a: string, b: string) => Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / MINUTE));
 
@@ -34,6 +42,9 @@ export function EventSheet({ event, onSave, onDelete, onClose }: Props) {
   const [ml, setMl] = useState(event?.amountMl != null ? String(event.amountMl) : '');
   const [diaperType, setDiaperType] = useState<DiaperType>(event?.diaperType ?? 'pee');
   const [note, setNote] = useState(event?.note ?? '');
+  const [temp, setTemp] = useState(event?.tempC != null ? String(event.tempC).replace('.', ',') : '');
+  const [medName, setMedName] = useState(event?.medName ?? '');
+  const [medDose, setMedDose] = useState(event?.medDose ?? '');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -82,6 +93,13 @@ export function EventSheet({ event, onSave, onDelete, onClose }: Props) {
       amountMl = Math.round(v);
     }
 
+    let tempC: number | null = null;
+    if (kind === 'temp') {
+      tempC = parseTemp(temp);
+      if (tempC === null || tempC < 34 || tempC > 43) return setError('Température en °C, par exemple 38,2.');
+    }
+    if (kind === 'med' && !medName.trim()) return setError('Indiquez le nom du médicament.');
+
     setBusy(true);
     try {
       await onSave({
@@ -92,6 +110,9 @@ export function EventSheet({ event, onSave, onDelete, onClose }: Props) {
         amountMl,
         diaperType: kind === 'diaper' ? diaperType : null,
         note: note.trim() || null,
+        // Champs santé : seulement pour les événements concernés.
+        ...(kind === 'temp' ? { tempC } : {}),
+        ...(kind === 'med' ? { medName: medName.trim(), medDose: medDose.trim() || null } : {}),
       });
     } catch (err) {
       setError(errorMessage(err));
@@ -182,6 +203,26 @@ export function EventSheet({ event, onSave, onDelete, onClose }: Props) {
               onChange={(e) => setMl(e.target.value.replace(/[^0-9]/g, ''))}
             />
           </label>
+        )}
+
+        {kind === 'temp' && (
+          <label className="field">
+            <span className="label">Température (°C)</span>
+            <input className="input" inputMode="decimal" value={temp} placeholder="37,5" onChange={(e) => setTemp(e.target.value)} />
+          </label>
+        )}
+
+        {kind === 'med' && (
+          <>
+            <label className="field">
+              <span className="label">Médicament</span>
+              <input className="input" value={medName} maxLength={60} placeholder="Vitamine D, paracétamol…" onChange={(e) => setMedName(e.target.value)} />
+            </label>
+            <label className="field">
+              <span className="label">Dose (facultatif)</span>
+              <input className="input" value={medDose} maxLength={40} placeholder="2,4 ml, 1 goutte…" onChange={(e) => setMedDose(e.target.value)} />
+            </label>
+          </>
         )}
 
         <label className="field">

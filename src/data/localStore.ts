@@ -1,5 +1,5 @@
 import { DEFAULT_PREFS, type ReminderPrefs } from '../../supabase/functions/_shared/reminders';
-import type { Baby, BabyEvent, Measurement, NewEvent } from '../lib/types';
+import type { Baby, BabyEvent, Measurement, NewEvent, Vaccination } from '../lib/types';
 import { StoreError, type BabyInput, type Store } from './store';
 
 const KEY = 'dollo:v1';
@@ -10,6 +10,7 @@ interface Data {
   babies: Baby[];
   events: BabyEvent[];
   measurements: Measurement[];
+  vaccinations: Vaccination[];
 }
 
 function read(): Data {
@@ -17,12 +18,12 @@ function read(): Data {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<Data>;
-      return { babies: parsed.babies ?? [], events: parsed.events ?? [], measurements: parsed.measurements ?? [] };
+      return { babies: parsed.babies ?? [], events: parsed.events ?? [], measurements: parsed.measurements ?? [], vaccinations: parsed.vaccinations ?? [] };
     }
   } catch {
     /* stockage indisponible ou corrompu : on repart d'une base vide */
   }
-  return { babies: [], events: [], measurements: [] };
+  return { babies: [], events: [], measurements: [], vaccinations: [] };
 }
 
 function write(data: Data) {
@@ -113,6 +114,23 @@ export function createLocalStore(): Store {
     async deleteMeasurement(id) {
       const data = read();
       write({ ...data, measurements: data.measurements.filter((m) => m.id !== id) });
+    },
+
+    async listVaccinations(babyId) {
+      return read().vaccinations.filter((v) => v.babyId === babyId);
+    },
+
+    async saveVaccination(babyId, code, givenOn, note) {
+      const data = read();
+      const cur = data.vaccinations.find((v) => v.babyId === babyId && v.code === code);
+      const saved: Vaccination = { id: cur?.id ?? crypto.randomUUID(), babyId, code, givenOn, note };
+      write({ ...data, vaccinations: [...data.vaccinations.filter((v) => v.id !== saved.id), saved] });
+      return saved;
+    },
+
+    async deleteVaccination(id) {
+      const data = read();
+      write({ ...data, vaccinations: data.vaccinations.filter((v) => v.id !== id) });
     },
 
     async getReminderPrefs(babyId) {

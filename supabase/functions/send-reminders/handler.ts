@@ -4,7 +4,7 @@
 // Logique ici ; index.ts ne fait que la servir (et handler.test.ts la teste sans vrai Supabase).
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
-import { dueReminders, localHour, reminderText, remindersToNotify, type ReminderEvent, type ReminderPrefs } from '../_shared/reminders.ts';
+import { dueDailyMed, dueReminders, localHour, reminderText, remindersToNotify, type ReminderEvent, type ReminderPrefs } from '../_shared/reminders.ts';
 
 const env = (k: string) => Deno.env.get(k) ?? '';
 
@@ -23,8 +23,8 @@ export async function handle(): Promise<Response> {
 
   const { data: settings, error } = await db
     .from('reminder_settings')
-    .select('user_id, baby_id, feed_every_min, diaper_dry_hours, quiet_night, time_zone, babies(name)')
-    .or('feed_every_min.not.is.null,diaper_dry_hours.not.is.null');
+    .select('user_id, baby_id, feed_every_min, diaper_dry_hours, quiet_night, time_zone, daily_med_name, daily_med_hour, babies(name)')
+    .or('feed_every_min.not.is.null,diaper_dry_hours.not.is.null,daily_med_name.not.is.null');
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
   // Événements des dernières 48 h, une requête par bébé.
@@ -33,24 +33,32 @@ export async function handle(): Promise<Response> {
   for (const babyId of new Set(settings.map((s) => s.baby_id as string))) {
     const { data } = await db
       .from('events')
-      .select('id, kind, started_at, ended_at, diaper_type')
+      .select('id, kind, started_at, ended_at, diaper_type, med_name')
       .eq('baby_id', babyId)
-      .in('kind', ['breast', 'bottle', 'diaper'])
+      .in('kind', ['breast', 'bottle', 'diaper', 'med'])
       .gte('started_at', since);
     eventsByBaby.set(
       babyId,
-      (data ?? []).map((e) => ({ id: e.id, kind: e.kind, startedAt: e.started_at, endedAt: e.ended_at, diaperType: e.diaper_type })),
+      (data ?? []).map((e) => ({ id: e.id, kind: e.kind, startedAt: e.started_at, endedAt: e.ended_at, diaperType: e.diaper_type, medName: e.med_name })),
     );
   }
 
   for (const s of settings) {
     stats.checked++;
-    const prefs: ReminderPrefs = { feedEveryMin: s.feed_every_min, diaperDryHours: s.diaper_dry_hours, quietNight: s.quiet_night };
-    const due = remindersToNotify(dueReminders(eventsByBaby.get(s.baby_id) ?? [], prefs, now), prefs, now, localHour(now, s.time_zone));
+    const prefs: ReminderPrefs = {
+      feedEveryMin: s.feed_every_min,
+      diaperDryHours: s.diaper_dry_hours,
+      quietNight: s.quiet_night,
+      dailyMed: s.daily_med_name ? { name: s.daily_med_name, hour: s.daily_med_hour } : null,
+    };
+    const events = eventsByBaby.get(s.baby_id) ?? [];
+    const daily = dueDailyMed(events, prefs, now, s.time_zone);
+    const due = remindersToNotify([...dueReminders(events, prefs, now), ...(daily ? [daily] : [])], prefs, now, localHour(now, s.time_zone));
     if (due.length === 0) continue;
 
-    const { data: devices } = await db.from('push_subscriptions').select('id, endpoint, p256dh, auth').eq('user_id', s.user_id);
-    if (!devices?.length) continue;
+    const { data } = await db.from('push_subscriptions').select('id, endpoint, p256dh, auth').eq('user_id', s.user_id);
+    let devices = data ?? [];
+    if (!devices.length) continue;
 
     for (const r of due) {
       stats.due++;
@@ -59,8 +67,8 @@ export async function handle(): Promise<Response> {
       if (dup) continue; // déjà envoyé pour ce dernier repas / cette dernière couche
 
       const babyName = (s.babies as { name?: string } | null)?.name ?? 'Bébé';
-      const payload = JSON.stringify({ ...reminderText(r, babyName, now), tag: `${s.baby_id}:${r.kind}`, url: '/?app' });
-      for (const d of devices) {
+      const payload = JSON.stringify({ ...reminderText(r, babyName, now, s.daily_med_name ?? undefined), tag: `${s.baby_id}:${r.kind}`, url: '/?app' });
+      for (const d of [...devices]) {
         try {
           await webpush.sendNotification({ endpoint: d.endpoint, keys: { p256dh: d.p256dh, auth: d.auth } }, payload, { TTL: 3600, urgency: 'high' });
           stats.sent++;
@@ -69,6 +77,7 @@ export async function handle(): Promise<Response> {
           if (status === 404 || status === 410) {
             // Appareil désinstallé ou notifications révoquées : on oublie l'abonnement.
             await db.from('push_subscriptions').delete().eq('id', d.id);
+            devices = devices.filter((x) => x.id !== d.id); // plus d'envoi vers cet appareil pour les rappels suivants
             stats.expiredDevices++;
           } else stats.errors++;
         }

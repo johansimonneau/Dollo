@@ -1,13 +1,15 @@
 import { useEffect, useState, type JSX } from 'react';
 import { DEFAULT_PREFS, type ReminderPrefs } from '../supabase/functions/_shared/reminders';
 import { syncPush } from './lib/push';
+import { byAppointment, doseStatus, dueDate } from './lib/vaccines';
+import { dayKey, fmtDate } from './lib/time';
 import type { OfflineStore, SyncState } from './data/offlineStore';
 import { EventSheet, type EventData } from './components/EventSheet';
 import { Icon } from './components/icons';
-import { BottleSheet, DiaperSheet } from './components/QuickSheets';
+import { BottleSheet, DiaperSheet, MedSheet, TempSheet, type RecentMed } from './components/QuickSheets';
 import { useToast } from './components/toast';
 import { errorMessage, type Store } from './data/store';
-import { DIAPER_LABEL, SIDE_LABEL } from './lib/labels';
+import { DIAPER_LABEL, fmtTemp, SIDE_LABEL } from './lib/labels';
 import { ongoing } from './lib/summary';
 import { babyAge, fmtDuration } from './lib/time';
 import { emptyEvent, type Baby, type BabyEvent, type BreastSide, type DiaperType } from './lib/types';
@@ -20,7 +22,7 @@ import { StatsTabs } from './screens/StatsTabs';
 import { Today } from './screens/Today';
 
 type Tab = 'today' | 'journal' | 'stats' | 'settings';
-type SheetState = { type: 'diaper' } | { type: 'bottle' } | { type: 'event'; event?: BabyEvent } | null;
+type SheetState = { type: 'diaper' } | { type: 'bottle' } | { type: 'temp' } | { type: 'med' } | { type: 'event'; event?: BabyEvent } | null;
 
 const TABS: { id: Tab; label: string; icon: (p: { size?: number }) => JSX.Element }[] = [
   { id: 'today', label: "Aujourd'hui", icon: Icon.Home },
@@ -96,6 +98,27 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
   useEffect(() => {
     if (store.mode === 'cloud') void syncPush(store).catch(() => undefined);
   }, [store, userId]);
+
+  // Vaccins (parents) : bandeau « vaccins des 2 mois à faire » sur Aujourd'hui.
+  const [vaxCodes, setVaxCodes] = useState<Set<string> | null>(null);
+  const [vaxVersion, setVaxVersion] = useState(0);
+  useEffect(() => {
+    if (nanny) return;
+    let alive = true;
+    store
+      .listVaccinations(baby.id)
+      .then((list) => alive && setVaxCodes(new Set(list.map((v) => v.code))))
+      .catch(() => alive && setVaxCodes(null)); // base pas encore migrée : pas de bandeau
+    return () => {
+      alive = false;
+    };
+  }, [store, baby.id, nanny, vaxVersion]);
+  const vaccinesDue = () => {
+    if (!vaxCodes || !baby.birthDate) return null;
+    const today = dayKey(now);
+    const g = byAppointment().find((grp) => grp.doses.some((d) => doseStatus(d, baby.birthDate!, today, vaxCodes.has(d.code) ? today : undefined) === 'due'));
+    return g ? `Vaccins des ${g.label} : prévus vers le ${fmtDate(dueDate(baby.birthDate, g.months))}` : null;
+  };
 
   // Côté parents : repérer ce qu'a noté la nounou (la liste des membres n'est lisible que par les parents).
   const [nannyIds, setNannyIds] = useState<Set<string>>(new Set());
@@ -206,6 +229,30 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
       toast.show(`Biberon enregistré · ${ml} ml`, { actionLabel: 'Annuler', onAction: () => guard(() => remove(created.id)) });
     });
 
+  const saveTemp = (tempC: number, when: When, note: string | null) =>
+    guard(async () => {
+      const startedAt = whenOrToast(when);
+      if (!startedAt) return;
+      const created = await add({ ...emptyEvent(baby.id, 'temp', startedAt), tempC, note });
+      closeSheet();
+      toast.show(`Température enregistrée · ${fmtTemp(tempC)}`, { actionLabel: 'Annuler', onAction: () => guard(() => remove(created.id)) });
+    });
+
+  const saveMed = (medName: string, medDose: string | null, when: When, note: string | null) =>
+    guard(async () => {
+      const startedAt = whenOrToast(when);
+      if (!startedAt) return;
+      const created = await add({ ...emptyEvent(baby.id, 'med', startedAt), medName, medDose, note });
+      closeSheet();
+      toast.show(`Médicament enregistré · ${medName}`, { actionLabel: 'Annuler', onAction: () => guard(() => remove(created.id)) });
+    });
+
+  // Derniers médicaments notés (pour les raccourcis et l'avertissement « dernière prise »).
+  const recentMeds: RecentMed[] = events
+    .filter((e) => e.kind === 'med' && e.medName)
+    .slice(0, 20)
+    .map((e) => ({ name: e.medName!, dose: e.medDose ?? null, at: e.startedAt }));
+
   const saveEvent = async (data: EventData) => {
     const editing = sheet?.type === 'event' ? sheet.event : undefined;
     if (editing) await update(editing.id, data);
@@ -283,12 +330,16 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
             events={events}
             now={now}
             reminderPrefs={reminderPrefs}
+            birthDate={baby.birthDate}
+            vaccinesDue={vaccinesDue()}
             actions={{
               startBreast: (s) => void startBreast(s),
               stop: (e) => void stop(e),
               toggleSleep: () => void toggleSleep(),
               openDiaper: () => setSheet({ type: 'diaper' }),
               openBottle: () => setSheet({ type: 'bottle' }),
+              openTemp: () => setSheet({ type: 'temp' }),
+              openMed: () => setSheet({ type: 'med' }),
               edit,
             }}
           />
@@ -303,7 +354,9 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
             nannyIds={nannyIds}
           />
         )}
-        {tab === 'stats' && <StatsTabs store={store} baby={baby} events={events} now={now} onBabyUpdated={onBabyUpdated} />}
+        {tab === 'stats' && (
+          <StatsTabs store={store} baby={baby} events={events} now={now} onBabyUpdated={onBabyUpdated} onVaccinesChanged={() => setVaxVersion((v) => v + 1)} />
+        )}
         {tab === 'settings' && (
           <Settings
             nanny={nanny}
@@ -332,6 +385,16 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
 
       {sheet?.type === 'diaper' && <DiaperSheet onSave={(t, w, n) => void saveDiaper(t, w, n)} onClose={closeSheet} />}
       {sheet?.type === 'bottle' && <BottleSheet defaultMl={readLastMl()} onSave={(ml, w, n) => void saveBottle(ml, w, n)} onClose={closeSheet} />}
+      {sheet?.type === 'temp' && <TempSheet onSave={(t, w, n) => void saveTemp(t, w, n)} onClose={closeSheet} />}
+      {sheet?.type === 'med' && (
+        <MedSheet
+          recent={recentMeds}
+          defaultName={reminderPrefs.dailyMed?.name}
+          now={now}
+          onSave={(n, d, w, note) => void saveMed(n, d, w, note)}
+          onClose={closeSheet}
+        />
+      )}
       {sheet?.type === 'event' && (
         <EventSheet
           key={sheet.event?.id ?? 'new'}

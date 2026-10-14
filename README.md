@@ -38,7 +38,7 @@ Sur [supabase.com](https://supabase.com) → *New project*. Choisissez une **ré
 > Utilisez un projet vierge, pas une base qui sert déjà à autre chose : la migration crée les tables `babies`, `baby_members`, `events` et `baby_invitations` dans le schéma `public`.
 
 ### 2. Créer les tables
-*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`, `0005_nanny.sql`, `0006_reminders.sql`, `0007_growth.sql`.
+*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`, `0005_nanny.sql`, `0006_reminders.sql`, `0007_growth.sql`, `0008_health.sql`.
 
 ### 3. Récupérer les deux clés publiques
 *Project Settings → API Keys* (ou *API*) :
@@ -115,6 +115,16 @@ Sans les étapes 2 à 5, les rappels restent affichés dans l'app (bandeaux), sa
 *Réglages → Données → Rapport pour le pédiatre* : une page A4 avec les 7 derniers jours (tétées, biberons en ml bus, couches pipi / caca, sommeil, et les moyennes), les mesures avec percentiles, les trois courbes et les notes des parents. « Imprimer / PDF » ouvre la fenêtre d'impression du téléphone, d'où l'on choisit « Enregistrer en PDF ».
 
 Mesures et sexe sont réservés aux parents : la nounou n'y a pas accès (RLS, migration `0007_growth.sql`). Cette migration verrouille aussi l'auteur et le bébé d'un événement, qui ne sont plus modifiables depuis l'API.
+
+## Santé : température, médicaments, vaccins
+
+- **Température** et **médicament** se notent depuis *Aujourd'hui*, comme les autres événements : partagés en direct, notés hors ligne, et la nounou peut les saisir. Au-delà de 38 °C, un bandeau rappelle quoi faire : avant 3 mois, consulter rapidement (médecin ou 15) ; ensuite, surveiller et appeler en cas de doute.
+- Avant une nouvelle prise, la feuille Médicament affiche **la dernière prise du même médicament**, avec la personne qui l'a donnée et la dose. Le but est d'éviter qu'il soit donné deux fois par deux personnes. Dollo n'indique aucune posologie.
+- **Traitement quotidien** (vitamine D…) : *Réglages → Rappels*. Bandeau et notification à l'heure choisie tant que la prise du jour n'est pas notée, avec une seule notification par jour.
+- **Vaccins** (*Stats → Santé*) : le calendrier français du nourrisson 2025–2026 (`src/lib/vaccines.ts`), dose par dose, avec date prévue et statut (fait, à faire, plus tard). Les méningocoques B et ACWY sont obligatoires depuis 2025, le rotavirus est recommandé. Un bandeau signale le rendez-vous à venir. Le calendrier sert de repère : le médecin décide du schéma.
+- Le rapport pour le pédiatre reprend températures, médicaments et vaccins.
+
+Vaccins : parents uniquement (RLS, migration `0008_health.sql`).
 
 ## Hors ligne
 

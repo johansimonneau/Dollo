@@ -7,7 +7,9 @@ import { dayBounds, dayKey, fmtDayLabel, shiftDay } from '../lib/time';
 import type { BabyEvent, EventKind } from '../lib/types';
 import { HISTORY_DAYS } from '../lib/useEvents';
 
-const KINDS: EventKind[] = ['breast', 'bottle', 'diaper', 'sleep'];
+const KINDS: EventKind[] = ['breast', 'bottle', 'diaper', 'sleep', 'temp', 'med'];
+/** Santé : filtre affiché seulement s'il y a quelque chose (un bébé en bonne santé n'a pas besoin de « 0 médicament »). */
+const HEALTH: EventKind[] = ['temp', 'med'];
 
 interface Props {
   events: BabyEvent[];
@@ -64,7 +66,7 @@ export function Journal({ events, now, onEdit, onAdd, historyDays = HISTORY_DAYS
       )}
 
       <div className="filters" role="group" aria-label="Filtrer le journal par type">
-        {KINDS.map((k) => (
+        {KINDS.filter((k) => !HEALTH.includes(k) || filter.includes(k) || events.some((e) => e.kind === k)).map((k) => (
           <button key={k} type="button" className={`pill kind-${k}`} aria-pressed={filter.includes(k)} onClick={() => toggle(k)}>
             {summaryText(k, scope)}
           </button>

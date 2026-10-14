@@ -17,7 +17,9 @@ function fakeWorld() {
   ];
   const pushed: string[] = [];
   const deleted: string[] = [];
-  const settings = [{ user_id: alice, baby_id: baby, feed_every_min: 180, diaper_dry_hours: 6, quiet_night: false, time_zone: 'Europe/Paris', babies: { name: 'Léa' } }];
+  // Traitement quotidien prévu à l'heure en cours (heure de Paris) et pas encore noté aujourd'hui : dû.
+  const parisHour = Number(new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hourCycle: 'h23', timeZone: 'Europe/Paris' }).format(new Date()));
+  const settings = [{ user_id: alice, baby_id: baby, feed_every_min: 180, diaper_dry_hours: 6, quiet_night: false, time_zone: 'Europe/Paris', daily_med_name: 'Vitamine D', daily_med_hour: parisHour, babies: { name: 'Léa' } }];
   const events = [
     { id: 'e-feed', kind: 'bottle', started_at: iso(3.5), ended_at: null, diaper_type: null }, // repas dû
     { id: 'e-pee', kind: 'diaper', started_at: iso(2), ended_at: null, diaper_type: 'pee' }, // couche : pas due
@@ -77,13 +79,15 @@ Deno.test("envoie le rappel repas dû, une seule fois, et oublie l'appareil dés
   const { handle } = await import('./handler.ts');
   try {
     const first = await (await handle()).json();
-    if (first.due !== 1) throw new Error(`1 rappel dû attendu (repas), reçu ${JSON.stringify(first)}`);
-    if (w.pushed.length !== 2) throw new Error(`envoi aux 2 appareils attendu, reçu ${w.pushed.length}`);
-    if (first.sent !== 1 || first.expiredDevices !== 1 || w.deleted[0] !== 'd2') throw new Error(`appareil 410 non nettoyé : ${JSON.stringify(first)}`);
-    if (![...w.sent].some((k) => k.endsWith(':feed:e-feed'))) throw new Error('rappel non journalisé');
+    if (first.due !== 2) throw new Error(`2 rappels dus attendus (repas + vitamine D), reçu ${JSON.stringify(first)}`);
+    // repas : 2 appareils (dont 1 désinstallé, oublié aussitôt) ; vitamine D : l'appareil restant
+    if (w.pushed.length !== 3) throw new Error(`3 envois attendus, reçu ${w.pushed.length}`);
+    if (first.sent !== 2 || first.expiredDevices !== 1 || w.deleted[0] !== 'd2') throw new Error(`appareil 410 non nettoyé : ${JSON.stringify(first)}`);
+    if (![...w.sent].some((k) => k.endsWith(':feed:e-feed'))) throw new Error('rappel repas non journalisé');
+    if (![...w.sent].some((k) => /:daily_med:\d{4}-\d{2}-\d{2}$/.test(k))) throw new Error('rappel vitamine D non journalisé (par date)');
 
     const second = await (await handle()).json();
-    if (second.sent !== 0 || w.pushed.length !== 2) throw new Error(`doublon envoyé au 2e passage : ${JSON.stringify(second)}`);
+    if (second.sent !== 0 || w.pushed.length !== 3) throw new Error(`doublon envoyé au 2e passage : ${JSON.stringify(second)}`);
   } finally {
     await w.server.shutdown();
     await w.push.shutdown();

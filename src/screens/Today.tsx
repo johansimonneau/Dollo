@@ -1,11 +1,10 @@
-import { dueReminders, nextFeedAt, type ReminderPrefs } from '../../supabase/functions/_shared/reminders';
-import { Icon } from '../components/icons';
-import { eventTitle, fmtVolume, SIDE_LABEL } from '../lib/labels';
+import { dueDailyMed, dueReminders, nextFeedAt, type ReminderPrefs } from '../../supabase/functions/_shared/reminders';
+import { Icon, KIND_ICON } from '../components/icons';
+import { eventTitle, FEVER_C, fmtTemp, fmtVolume, SIDE_LABEL } from '../lib/labels';
 import { summarize, lastOf, ongoing, suggestNextSide } from '../lib/summary';
 import { DAY, HOUR, MINUTE, fmtClock, fmtDuration, fmtTimer, timeAgo } from '../lib/time';
 import type { BabyEvent, BreastSide, EventKind } from '../lib/types';
 
-const KIND_ICON = { breast: Icon.Breast, bottle: Icon.Bottle, diaper: Icon.Diaper, sleep: Icon.Moon } as const;
 
 export interface TodayActions {
   startBreast: (side: BreastSide) => void;
@@ -13,6 +12,8 @@ export interface TodayActions {
   toggleSleep: () => void;
   openDiaper: () => void;
   openBottle: () => void;
+  openTemp: () => void;
+  openMed: () => void;
   edit: (event: BabyEvent) => void;
 }
 
@@ -21,16 +22,27 @@ interface Props {
   now: number;
   actions: TodayActions;
   reminderPrefs?: ReminderPrefs;
+  /** Pour adapter le conseil en cas de fièvre (avant 3 mois : consulter sans attendre). */
+  birthDate?: string | null;
+  /** « Vaccins des 2 mois : prévus vers le 1 oct. 2026 » (parents), ou null. */
+  vaccinesDue?: string | null;
 }
 
-export function Today({ events, now, actions, reminderPrefs }: Props) {
+const tz = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris';
+
+export function Today({ events, now, actions, reminderPrefs, birthDate, vaccinesDue }: Props) {
   const running = ongoing(events);
   const nextSide = suggestNextSide(events);
   const sleeping = running.find((e) => e.kind === 'sleep');
   // Fenêtre glissante de 24 h. La borne de fin dépasse `now` : l'horloge de l'écran n'avance que toutes les 15 s, et un
   // événement saisi juste après un tic (heure réelle > `now`) serait sinon exclu jusqu'au prochain.
   const day = summarize(events, now - DAY, now + HOUR, now);
-  const due = reminderPrefs ? dueReminders(events, reminderPrefs, now) : [];
+  const daily = reminderPrefs ? dueDailyMed(events, reminderPrefs, now, tz()) : null;
+  const due = reminderPrefs ? [...dueReminders(events, reminderPrefs, now), ...(daily ? [daily] : [])] : [];
+  // Fièvre : dernière température des 12 dernières heures à 38 °C ou plus.
+  const lastTemp = lastOf(events, 'temp');
+  const fever = lastTemp && lastTemp.tempC != null && lastTemp.tempC >= FEVER_C && now - new Date(lastTemp.startedAt).getTime() < 12 * HOUR ? lastTemp : null;
+  const underThreeMonths = birthDate ? now - new Date(`${birthDate}T00:00:00`).getTime() < 91 * DAY : false;
   const nextFeed = reminderPrefs ? nextFeedAt(events, reminderPrefs) : null;
 
   return (
@@ -64,17 +76,48 @@ export function Today({ events, now, actions, reminderPrefs }: Props) {
         );
       })}
 
+      {fever && (
+        <section className="fever-banner" role="alert" aria-label="Fièvre">
+          <Icon.Thermo size={26} />
+          <p>
+            <strong>
+              Fièvre : {fmtTemp(fever.tempC!)} à {fmtClock(fever.startedAt)}
+            </strong>
+            {underThreeMonths
+              ? 'Avant 3 mois, toute fièvre doit être vue rapidement : appelez votre médecin, ou le 15 si vous ne pouvez pas le joindre.'
+              : 'Surveillez bébé (boit-il bien ? est-il réactif ?). En cas de doute ou de signe inquiétant, appelez votre médecin ou le 15.'}
+          </p>
+        </section>
+      )}
+
+      {vaccinesDue && (
+        <p className="reminder-banner kind-med" role="status">
+          <Icon.Check size={24} />
+          <span>
+            {vaccinesDue}
+            <small>À noter dans Stats → Santé une fois faits.</small>
+          </span>
+        </p>
+      )}
+
       {due.length > 0 && (
         <section className="reminders" aria-label="Rappels">
           {due.map((r) => (
-            <p key={r.kind} className={`reminder-banner kind-${r.kind === 'feed' ? 'bottle' : 'diaper'}`} role="status">
-              {r.kind === 'feed' ? <Icon.Bottle size={24} /> : <Icon.Diaper size={24} />}
-              <span>
-                {r.kind === 'feed' ? "C'est bientôt l'heure de manger" : 'Pas de couche mouillée depuis un moment'}
-                <small>
-                  {r.kind === 'feed' ? 'Dernier repas' : 'Dernière couche mouillée'} il y a {fmtDuration(now - new Date(r.lastAt).getTime())}
-                </small>
-              </span>
+            <p key={r.kind} className={`reminder-banner kind-${r.kind === 'feed' ? 'bottle' : r.kind === 'diaper' ? 'diaper' : 'med'}`} role="status">
+              {r.kind === 'feed' ? <Icon.Bottle size={24} /> : r.kind === 'diaper' ? <Icon.Diaper size={24} /> : <Icon.Pill size={24} />}
+              {r.kind === 'daily_med' ? (
+                <span>
+                  {reminderPrefs?.dailyMed?.name} : pas encore noté aujourd'hui
+                  <small>Rappel prévu à {reminderPrefs?.dailyMed?.hour}{'\u00a0'}h</small>
+                </span>
+              ) : (
+                <span>
+                  {r.kind === 'feed' ? "C'est bientôt l'heure de manger" : 'Pas de couche mouillée depuis un moment'}
+                  <small>
+                    {r.kind === 'feed' ? 'Dernier repas' : 'Dernière couche mouillée'} il y a {fmtDuration(now - new Date(r.lastAt).getTime())}
+                  </small>
+                </span>
+              )}
             </p>
           ))}
         </section>
@@ -114,6 +157,14 @@ export function Today({ events, now, actions, reminderPrefs }: Props) {
             </span>
           </button>
         </div>
+        <div className="health-row">
+          <button type="button" className="health-btn kind-temp" onClick={actions.openTemp}>
+            <Icon.Thermo size={22} /> Température
+          </button>
+          <button type="button" className="health-btn kind-med" onClick={actions.openMed}>
+            <Icon.Pill size={22} /> Médicament
+          </button>
+        </div>
       </section>
 
       <section aria-label="Depuis la dernière fois">
@@ -128,6 +179,9 @@ export function Today({ events, now, actions, reminderPrefs }: Props) {
           <SinceRow kind="bottle" event={lastOf(events, 'bottle')} now={now} onClick={actions.edit} />
           <SinceRow kind="diaper" event={lastOf(events, 'diaper')} now={now} onClick={actions.edit} />
           <SinceRow kind="sleep" event={lastOf(events, 'sleep')} now={now} onClick={actions.edit} />
+          {/* Santé : seulement si quelque chose a déjà été noté (pas de lignes vides pour un bébé en bonne santé). */}
+          {lastOf(events, 'med') && <SinceRow kind="med" event={lastOf(events, 'med')} now={now} onClick={actions.edit} />}
+          {lastTemp && <SinceRow kind="temp" event={lastTemp} now={now} onClick={actions.edit} />}
         </ul>
       </section>
 
@@ -154,6 +208,8 @@ const SINCE_LABEL: Record<EventKind, string> = {
   bottle: 'Dernier biberon',
   diaper: 'Dernière couche',
   sleep: 'Sommeil',
+  temp: 'Température',
+  med: 'Dernier médicament',
 };
 
 function SinceRow({ kind, event, now, onClick }: { kind: EventKind; event: BabyEvent | null; now: number; onClick: (e: BabyEvent) => void }) {

@@ -1,4 +1,4 @@
-export type EventKind = 'breast' | 'bottle' | 'diaper' | 'sleep';
+export type EventKind = 'breast' | 'bottle' | 'diaper' | 'sleep' | 'temp' | 'med';
 export type BreastSide = 'left' | 'right';
 export type DiaperType = 'pee' | 'poop' | 'both';
 
@@ -33,6 +33,16 @@ export interface Measurement {
 }
 export type NewMeasurement = Omit<Measurement, 'id'>;
 
+/** Dose de vaccin notée comme faite (code : voir lib/vaccines.ts). */
+export interface Vaccination {
+  id: string;
+  babyId: string;
+  code: string;
+  /** YYYY-MM-DD */
+  givenOn: string;
+  note: string | null;
+}
+
 /** Personne ayant accès au suivi d'un bébé. */
 export interface Member {
   userId: string;
@@ -66,6 +76,11 @@ export interface BabyEvent {
   /** Biberon : quantité réellement BUE par bébé (pas la quantité préparée). */
   amountMl: number | null;
   diaperType: DiaperType | null;
+  /** Température en °C (événement « temp »). */
+  tempC?: number | null;
+  /** Médicament (événement « med ») : nom et dose libre (« 2,4 ml », « 1 goutte »). */
+  medName?: string | null;
+  medDose?: string | null;
   note: string | null;
   /** Auteur (mode cloud). Rempli par la base, jamais envoyé par l'app. */
   createdBy?: string | null;

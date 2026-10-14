@@ -61,6 +61,9 @@ describe('supabaseStore', () => {
       diaperType: null,
       note: null,
       createdBy: null,
+      tempC: null,
+      medName: null,
+      medDose: null,
     });
   });
 
@@ -126,6 +129,22 @@ describe('supabaseStore', () => {
     const [b] = await createSupabaseStore(client).listBabies();
     expect(calls.rpc).toEqual(['list_my_babies', undefined]);
     expect(b).toEqual({ id: 'b1', name: 'Léa', birthDate: null, inviteCode: undefined, createdAt: '2026-10-01T00:00:00Z', role: 'nanny', sex: null });
+  });
+
+  describe('santé (température, médicament)', () => {
+    it("n'envoie les champs santé que pour les événements concernés (base non migrée : le reste fonctionne)", async () => {
+      const bottle = fakeClient({ data: row });
+      await createSupabaseStore(bottle.client).addEvent({ ...emptyEvent('b1', 'bottle', '2026-10-13T07:00:00.000Z'), amountMl: 90, tempC: null, medName: null });
+      expect(Object.keys(bottle.calls.payload as object)).not.toContain('temp_c');
+      expect(Object.keys(bottle.calls.payload as object)).not.toContain('med_name');
+      const temp = fakeClient({ data: { ...row, kind: 'temp', side: null, temp_c: '38.4' } });
+      const t = await createSupabaseStore(temp.client).addEvent({ ...emptyEvent('b1', 'temp', '2026-10-13T07:00:00.000Z'), tempC: 38.4 });
+      expect((temp.calls.payload as Record<string, unknown>).temp_c).toBe(38.4);
+      expect(t.tempC).toBe(38.4); // numeric renvoyé en texte : converti
+      const dose = fakeClient({ data: { ...row, kind: 'med', side: null, med_name: 'Paracétamol', med_dose: null } });
+      await createSupabaseStore(dose.client).updateEvent('e1', { medDose: null });
+      expect(dose.calls.payload).toEqual({ med_dose: null }); // effacer la dose fonctionne
+    });
   });
 
   describe('croissance', () => {

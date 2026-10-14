@@ -66,6 +66,9 @@ interface EventRow {
   diaper_type: DiaperType | null;
   note: string | null;
   created_by?: string | null;
+  temp_c?: number | string | null;
+  med_name?: string | null;
+  med_dose?: string | null;
 }
 
 const toBaby = (r: BabyRow): Baby => ({
@@ -99,6 +102,10 @@ const toEvent = (r: EventRow): BabyEvent => ({
   diaperType: r.diaper_type,
   note: r.note,
   createdBy: r.created_by ?? null,
+  // numeric(3,1) arrive en texte selon les versions de PostgREST
+  tempC: r.temp_c == null ? null : Number(r.temp_c),
+  medName: r.med_name ?? null,
+  medDose: r.med_dose ?? null,
 });
 
 /** Ne transmet que les champs présents dans le patch (un `null` explicite efface la valeur). */
@@ -112,6 +119,12 @@ function toRow(e: Partial<NewEvent>): Record<string, unknown> {
   if ('amountMl' in e) r.amount_ml = e.amountMl;
   if ('diaperType' in e) r.diaper_type = e.diaperType;
   if ('note' in e) r.note = e.note;
+  // Nouveaux champs (migration 0008) : envoyés seulement pour les événements qui les utilisent, pour qu'une base pas
+  // encore migrée continue d'accepter tétées, biberons, couches et dodos.
+  const concerns = (k: EventKind, v: unknown) => v != null || !('kind' in e) || e.kind === k;
+  if ('tempC' in e && concerns('temp', e.tempC)) r.temp_c = e.tempC;
+  if ('medName' in e && concerns('med', e.medName)) r.med_name = e.medName;
+  if ('medDose' in e && concerns('med', e.medDose)) r.med_dose = e.medDose;
   return r;
 }
 
@@ -137,6 +150,8 @@ function fail(error: { message: string; code?: string }, fallback: string): neve
 }
 
 export function createSupabaseStore(client: SupabaseClient): Store {
+  // La base a-t-elle les colonnes du traitement quotidien (migration 0008) ? Appris à la lecture des réglages.
+  let hasDailyMed = false;
   return {
     mode: 'cloud',
 
@@ -231,14 +246,28 @@ export function createSupabaseStore(client: SupabaseClient): Store {
     },
 
     async getReminderPrefs(babyId) {
-      const { data, error } = await client
-        .from('reminder_settings')
-        .select('feed_every_min, diaper_dry_hours, quiet_night')
-        .eq('baby_id', babyId)
-        .maybeSingle();
-      if (error) fail(error, 'Chargement des rappels impossible.');
+      const base = 'feed_every_min, diaper_dry_hours, quiet_night';
+      let res = await client.from('reminder_settings').select(`${base}, daily_med_name, daily_med_hour`).eq('baby_id', babyId).maybeSingle();
+      hasDailyMed = !res.error;
+      // Base sans la migration 0008 : on relit sans le traitement quotidien plutôt que de tout perdre.
+      if (res.error && /daily_med|schema cache|does not exist/i.test(res.error.message)) {
+        res = await client.from('reminder_settings').select(base).eq('baby_id', babyId).maybeSingle();
+      }
+      if (res.error) fail(res.error, 'Chargement des rappels impossible.');
+      const data = res.data as {
+        feed_every_min: number | null;
+        diaper_dry_hours: number | null;
+        quiet_night: boolean;
+        daily_med_name?: string | null;
+        daily_med_hour?: number | null;
+      } | null;
       if (!data) return { ...DEFAULT_PREFS };
-      return { feedEveryMin: data.feed_every_min, diaperDryHours: data.diaper_dry_hours, quietNight: data.quiet_night };
+      return {
+        feedEveryMin: data.feed_every_min,
+        diaperDryHours: data.diaper_dry_hours,
+        quietNight: data.quiet_night,
+        dailyMed: data.daily_med_name ? { name: data.daily_med_name, hour: data.daily_med_hour ?? 9 } : null,
+      };
     },
 
     async saveReminderPrefs(babyId, prefs, timeZone) {
@@ -252,6 +281,9 @@ export function createSupabaseStore(client: SupabaseClient): Store {
           diaper_dry_hours: prefs.diaperDryHours,
           quiet_night: prefs.quietNight,
           time_zone: timeZone,
+          ...(hasDailyMed || prefs.dailyMed
+            ? { daily_med_name: prefs.dailyMed?.name ?? null, daily_med_hour: prefs.dailyMed?.hour ?? null }
+            : {}),
         },
         { onConflict: 'user_id,baby_id' },
       );
@@ -289,6 +321,35 @@ export function createSupabaseStore(client: SupabaseClient): Store {
     async deleteMeasurement(id) {
       const { error } = await client.from('measurements').delete().eq('id', id);
       if (error) fail(error, 'Suppression de la mesure impossible.');
+    },
+
+    async listVaccinations(babyId) {
+      const { data, error } = await client.from('vaccinations').select('id, baby_id, code, given_on, note').eq('baby_id', babyId);
+      if (error) fail(error, 'Chargement des vaccins impossible.');
+      return (data as { id: string; baby_id: string; code: string; given_on: string; note: string | null }[]).map((r) => ({
+        id: r.id,
+        babyId: r.baby_id,
+        code: r.code,
+        givenOn: r.given_on,
+        note: r.note,
+      }));
+    },
+
+    async saveVaccination(babyId, code, givenOn, note) {
+      const existing = await client.from('vaccinations').select('id').eq('baby_id', babyId).eq('code', code).maybeSingle();
+      if (existing.error) fail(existing.error, 'Enregistrement du vaccin impossible.');
+      const q = existing.data
+        ? client.from('vaccinations').update({ given_on: givenOn, note }).eq('id', (existing.data as { id: string }).id)
+        : client.from('vaccinations').insert({ baby_id: babyId, code, given_on: givenOn, note });
+      const { data, error } = await q.select('id, baby_id, code, given_on, note').single();
+      if (error) fail(error, 'Enregistrement du vaccin impossible.');
+      const r = data as { id: string; baby_id: string; code: string; given_on: string; note: string | null };
+      return { id: r.id, babyId: r.baby_id, code: r.code, givenOn: r.given_on, note: r.note };
+    },
+
+    async deleteVaccination(id) {
+      const { error } = await client.from('vaccinations').delete().eq('id', id);
+      if (error) fail(error, 'Suppression du vaccin impossible.');
     },
 
     async listEvents(babyId, sinceIso) {

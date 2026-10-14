@@ -8,24 +8,27 @@ export interface ReminderPrefs {
   diaperDryHours: number | null;
   /** Pas de notification entre 22 h et 7 h (heure locale). Les bandeaux dans l'app restent affichés. */
   quietNight: boolean;
+  /** Traitement quotidien (ex. vitamine D) : rappel à partir de `hour` (heure locale) s'il n'a pas été noté ce jour-là. */
+  dailyMed?: { name: string; hour: number } | null;
 }
 
-export const DEFAULT_PREFS: ReminderPrefs = { feedEveryMin: null, diaperDryHours: null, quietNight: false };
+export const DEFAULT_PREFS: ReminderPrefs = { feedEveryMin: null, diaperDryHours: null, quietNight: false, dailyMed: null };
 
 export const FEED_CHOICES = [120, 150, 180, 210, 240] as const;
 export const DIAPER_CHOICES = [4, 6, 8] as const;
 
 export interface ReminderEvent {
   id: string;
-  kind: 'breast' | 'bottle' | 'diaper' | 'sleep';
+  kind: 'breast' | 'bottle' | 'diaper' | 'sleep' | 'temp' | 'med';
   startedAt: string;
   endedAt: string | null;
   diaperType: 'pee' | 'poop' | 'both' | null;
+  medName?: string | null;
 }
 
 export interface DueReminder {
-  kind: 'feed' | 'diaper';
-  /** Événement de référence : on ne notifie qu'une fois par « dernier repas » / « dernière couche ». */
+  kind: 'feed' | 'diaper' | 'daily_med';
+  /** Référence : on ne notifie qu'une fois par « dernier repas », « dernière couche » ou JOUR (traitement quotidien). */
   refId: string;
   lastAt: string;
   /** Moment où le rappel est devenu dû. */
@@ -85,6 +88,43 @@ export function remindersToNotify(due: DueReminder[], prefs: ReminderPrefs, nowM
   return due.filter((r) => nowMs - r.dueAt < STALE_AFTER_MS);
 }
 
+/** Nom de médicament comparable : « Vitamine D » = « vitamine d » = « Vitamine  D ». */
+export const normalizeMedName = (n: string) =>
+  n
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/** Date (YYYY-MM-DD), heure et minute locales dans un fuseau. */
+export function localParts(ms: number, timeZone: string): { date: string; hour: number; minute: number } {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(ms));
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '00';
+    return { date: `${get('year')}-${get('month')}-${get('day')}`, hour: Number(get('hour')), minute: Number(get('minute')) };
+  } catch {
+    const d = new Date(ms);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return { date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, hour: d.getHours(), minute: d.getMinutes() };
+  }
+}
+
+/** Traitement quotidien pas encore noté aujourd'hui, une fois l'heure passée. Une seule notification par jour. */
+export function dueDailyMed(events: ReminderEvent[], prefs: ReminderPrefs, nowMs: number, timeZone: string): DueReminder | null {
+  const med = prefs.dailyMed;
+  if (!med) return null;
+  const now = localParts(nowMs, timeZone);
+  if (now.hour < med.hour) return null;
+  const wanted = normalizeMedName(med.name);
+  const given = events.some(
+    (e) => e.kind === 'med' && e.medName && normalizeMedName(e.medName) === wanted && localParts(new Date(e.startedAt).getTime(), timeZone).date === now.date,
+  );
+  if (given) return null;
+  const dueAt = nowMs - ((now.hour - med.hour) * 60 + now.minute) * MINUTE;
+  return { kind: 'daily_med', refId: now.date, lastAt: new Date(dueAt).toISOString(), dueAt };
+}
+
 /** Heure locale (0–23) dans un fuseau donné, pour la plage de nuit. */
 export function localHour(nowMs: number, timeZone: string): number {
   try {
@@ -98,7 +138,8 @@ export function localHour(nowMs: number, timeZone: string): number {
 export const isNight = (hour: number) => hour >= 22 || hour < 7;
 
 /** Texte de la notification (la même formulation dans l'app et sur l'écran verrouillé). */
-export function reminderText(r: DueReminder, babyName: string, nowMs: number): { title: string; body: string } {
+export function reminderText(r: DueReminder, babyName: string, nowMs: number, medName?: string): { title: string; body: string } {
+  if (r.kind === 'daily_med') return { title: `${babyName} : ${medName ?? 'traitement du jour'}`, body: "Pas encore noté aujourd'hui." };
   const mins = Math.max(0, Math.round((nowMs - new Date(r.lastAt).getTime()) / MINUTE));
   const h = Math.floor(mins / 60);
   const m = mins % 60;

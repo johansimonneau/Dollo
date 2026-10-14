@@ -7,7 +7,15 @@ export const KIND_LABEL: Record<EventKind, string> = {
   bottle: 'Biberon',
   diaper: 'Couche',
   sleep: 'Sommeil',
+  temp: 'Température',
+  med: 'Médicament',
 };
+
+/** « 38,2 °C » */
+export const fmtTemp = (c: number) => `${c.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}\u00a0°C`;
+
+/** Fièvre chez le nourrisson : 38 °C et plus (repère de santé publique). */
+export const FEVER_C = 38;
 
 export const DIAPER_LABEL: Record<DiaperType, string> = {
   pee: 'Pipi',
@@ -38,6 +46,10 @@ export function summaryText(kind: EventKind, s: Summary): string {
       return plural(s.diaperCount, 'couche');
     case 'sleep':
       return `${s.sleepMs > 0 ? fmtDuration(s.sleepMs) : '0 min'} de sommeil`;
+    case 'temp':
+      return s.tempCount > 0 && s.tempMax !== null ? `${plural(s.tempCount, 'prise')} · max ${fmtTemp(s.tempMax)}` : '0 prise';
+    case 'med':
+      return plural(s.medCount, 'médicament');
   }
 }
 
@@ -54,6 +66,10 @@ export function eventTitle(e: BabyEvent): string {
       return e.diaperType ? DIAPER_LABEL[e.diaperType] : 'Couche';
     case 'sleep':
       return 'Sommeil';
+    case 'temp':
+      return e.tempC != null ? `Température · ${fmtTemp(e.tempC)}` : 'Température';
+    case 'med':
+      return [e.medName ?? 'Médicament', e.medDose].filter(Boolean).join(' · ');
   }
 }
 
@@ -72,7 +88,11 @@ export function eventsToCsv(events: BabyEvent[]): string {
       const date = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
       const minutes = e.endedAt ? Math.round((new Date(e.endedAt).getTime() - start.getTime()) / 60000) : null;
       const detail =
-        e.kind === 'breast'
+        e.kind === 'temp' && e.tempC != null
+          ? fmtTemp(e.tempC).replace('\u00a0', ' ')
+          : e.kind === 'med'
+            ? [e.medName, e.medDose].filter(Boolean).join(' ')
+            : e.kind === 'breast'
           ? e.side
             ? SIDE_LABEL[e.side]
             : ''

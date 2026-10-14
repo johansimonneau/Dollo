@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dueReminders, isNight, localHour, nextFeedAt, reminderText, remindersToNotify, type ReminderEvent } from '../../supabase/functions/_shared/reminders';
+import { dueDailyMed, dueReminders, isNight, localHour, localParts, nextFeedAt, reminderText, remindersToNotify, type ReminderEvent } from '../../supabase/functions/_shared/reminders';
 
 const H = 3_600_000;
 const now = Date.UTC(2026, 9, 14, 12, 0);
@@ -49,6 +49,24 @@ describe('rappels', () => {
     const stale = dueReminders([ev('b', 'bottle', 20)], prefs, now);
     expect(stale).toHaveLength(1); // le bandeau de l'app l'affiche…
     expect(remindersToNotify(stale, prefs, now, 14)).toEqual([]); // …mais pas de notification
+  });
+
+  it("traitement quotidien : dû après l'heure choisie, tant qu'il n'est pas noté AUJOURD'HUI (heure locale)", () => {
+    const tz = 'Europe/Paris';
+    const at = (h: number, m = 0) => Date.UTC(2026, 9, 14, h - 2, m); // heure de Paris (UTC+2 en octobre)
+    const vitD = { ...prefs, feedEveryMin: null, diaperDryHours: null, dailyMed: { name: 'Vitamine D', hour: 9 } };
+    expect(dueDailyMed([], vitD, at(8, 59), tz)).toBeNull();
+    const due = dueDailyMed([], vitD, at(10, 30), tz)!;
+    expect(due).toMatchObject({ kind: 'daily_med', refId: '2026-10-14' });
+    expect(due.dueAt).toBe(at(9, 0));
+    const given = (h: number, name = 'vitamine  d') => ({ id: 'm', kind: 'med' as const, startedAt: new Date(at(h)).toISOString(), endedAt: null, diaperType: null, medName: name });
+    expect(dueDailyMed([given(8)], vitD, at(10), tz)).toBeNull(); // donnée ce matin (même écrite autrement)
+    expect(dueDailyMed([given(8, 'Paracétamol')], vitD, at(10), tz)).not.toBeNull(); // autre médicament
+    // donnée hier à 23 h 30 (heure de Paris) : ne compte pas pour aujourd'hui
+    const yesterday = { ...given(0), startedAt: new Date(Date.UTC(2026, 9, 13, 21, 30)).toISOString() };
+    expect(localParts(Date.parse(yesterday.startedAt), tz).date).toBe('2026-10-13');
+    expect(dueDailyMed([yesterday], vitD, at(10), tz)).not.toBeNull();
+    expect(reminderText(due, 'Léa', at(10), 'Vitamine D')).toEqual({ title: 'Léa : Vitamine D', body: "Pas encore noté aujourd'hui." });
   });
 
   it('texte lisible sur l’écran verrouillé', () => {

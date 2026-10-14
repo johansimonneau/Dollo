@@ -12,6 +12,8 @@ interface Props {
   onPrefsChange: (prefs: ReminderPrefs) => void;
 }
 
+const DAILY_HOURS = [8, 9, 12, 18, 20];
+
 const fmtInterval = (min: number) => `${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60}` : ''}`;
 const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris';
 
@@ -60,7 +62,7 @@ export function RemindersSettings({ store, baby, prefs, onPrefsChange }: Props) 
     }
   };
 
-  const anyReminder = prefs.feedEveryMin !== null || prefs.diaperDryHours !== null;
+  const anyReminder = prefs.feedEveryMin !== null || prefs.diaperDryHours !== null || !!prefs.dailyMed;
 
   return (
     <section className="card pad" aria-label="Rappels">
@@ -98,6 +100,48 @@ export function RemindersSettings({ store, baby, prefs, onPrefsChange }: Props) 
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="field">
+        <span className="label" id="daily-label">
+          Traitement quotidien
+        </span>
+        {prefs.dailyMed ? (
+          <>
+            <input
+              className="input"
+              aria-label="Nom du traitement"
+              defaultValue={prefs.dailyMed.name}
+              maxLength={60}
+              onBlur={(e) => {
+                const name = e.target.value.trim();
+                if (name && name !== prefs.dailyMed?.name) void save({ ...prefs, dailyMed: { name, hour: prefs.dailyMed!.hour } });
+              }}
+            />
+            <div className="chips" role="group" aria-labelledby="daily-label">
+              {DAILY_HOURS.map((h) => (
+                <button
+                  key={h}
+                  type="button"
+                  className="chip"
+                  aria-pressed={prefs.dailyMed?.hour === h}
+                  onClick={() => void save({ ...prefs, dailyMed: { name: prefs.dailyMed!.name, hour: h } })}
+                >
+                  {h}
+                  {'\u00a0'}h
+                </button>
+              ))}
+            </div>
+            <span className="hint">Rappel à cette heure s'il n'a pas été noté dans la journée (bouton « Médicament »).</span>
+            <button type="button" className="link-btn danger left" onClick={() => void save({ ...prefs, dailyMed: null })}>
+              Retirer ce rappel
+            </button>
+          </>
+        ) : (
+          <button type="button" className="btn" onClick={() => void save({ ...prefs, dailyMed: { name: 'Vitamine D', hour: 9 } })}>
+            Ajouter un rappel (ex. vitamine D)
+          </button>
+        )}
       </div>
 
       <label className="check">

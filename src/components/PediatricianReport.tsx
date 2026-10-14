@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { errorMessage, type Store } from '../data/store';
 import { ageInMonths, fmtPercentile, INDICATOR_LABEL, percentile, type Indicator } from '../lib/growth';
-import { fmtVolume } from '../lib/labels';
+import { FEVER_C, fmtTemp, fmtVolume } from '../lib/labels';
+import { VACCINE_CALENDAR } from '../lib/vaccines';
 import { dailySeries, type Summary } from '../lib/summary';
 import { babyAge, dayKey, DAY, fmtClock, fmtDate, fmtDuration } from '../lib/time';
-import type { Baby, BabyEvent, Measurement } from '../lib/types';
+import type { Baby, BabyEvent, Measurement, Vaccination } from '../lib/types';
 import { GrowthChart, measurementValue } from './GrowthChart';
 
 interface Props {
@@ -28,12 +29,17 @@ const unitValue = (m: Measurement, i: Indicator) => {
  */
 export function PediatricianReport({ store, baby, events, now, onClose }: Props) {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [vaccines, setVaccines] = useState<Vaccination[]>([]);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     store
       .listMeasurements(baby.id)
       .then(setMeasurements)
       .catch((e) => setError(errorMessage(e)));
+    store
+      .listVaccinations(baby.id)
+      .then(setVaccines)
+      .catch(() => undefined); // base pas encore migrée : section vaccins absente
   }, [store, baby.id]);
 
   useEffect(() => {
@@ -51,6 +57,13 @@ export function PediatricianReport({ store, baby, events, now, onClose }: Props)
   const fmtAvg = (v: number | null) => (v === null ? '—' : v.toLocaleString('fr-FR', { maximumFractionDigits: 1 }));
   const bottleMlAvg = avg((s) => s.bottleMl);
   const sleepAvg = avg((s) => s.sleepMs);
+  const since = now - DAYS * DAY;
+  const temps = events.filter((e) => e.kind === 'temp' && e.tempC != null && new Date(e.startedAt).getTime() >= since);
+  const meds = events.filter((e) => e.kind === 'med' && new Date(e.startedAt).getTime() >= since);
+  const doneVaccines = VACCINE_CALENDAR.filter((d) => vaccines.some((v) => v.code === d.code)).map((d) => ({
+    dose: d,
+    on: vaccines.find((v) => v.code === d.code)!.givenOn,
+  }));
   const notes = events.filter((e) => e.note && new Date(e.startedAt).getTime() >= now - DAYS * DAY).slice(0, 12);
   const age = babyAge(baby.birthDate, now);
   const sex = baby.sex ?? null;
@@ -176,6 +189,39 @@ export function PediatricianReport({ store, baby, events, now, onClose }: Props)
           )}
           {sex && <p className="report-note">Courbes de référence OMS (3e, 15e, 50e, 85e, 97e percentiles).</p>}
         </section>
+
+        {(temps.length > 0 || meds.length > 0) && (
+          <section>
+            <h2>Santé (7 derniers jours)</h2>
+            {temps.length > 0 && (
+              <p>
+                <strong>Températures :</strong>{' '}
+                {temps
+                  .map((e) => `${fmtTemp(e.tempC!)} le ${fmtDate(dayKey(e.startedAt))} à ${fmtClock(e.startedAt)}${e.tempC! >= FEVER_C ? ' (fièvre)' : ''}`)
+                  .join(' ; ')}
+              </p>
+            )}
+            {meds.length > 0 && (
+              <p>
+                <strong>Médicaments :</strong>{' '}
+                {meds.map((e) => `${e.medName}${e.medDose ? ` ${e.medDose}` : ''} le ${fmtDate(dayKey(e.startedAt))} à ${fmtClock(e.startedAt)}`).join(' ; ')}
+              </p>
+            )}
+          </section>
+        )}
+
+        {doneVaccines.length > 0 && (
+          <section>
+            <h2>Vaccins notés par les parents</h2>
+            <ul className="report-notes">
+              {doneVaccines.map(({ dose, on }) => (
+                <li key={dose.code}>
+                  <strong>{fmtDate(on)}</strong> {dose.label} ({dose.detail})
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {notes.length > 0 && (
           <section>
