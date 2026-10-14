@@ -48,10 +48,12 @@ jobs:
         with:
           deno-version: v2.x
       - name: Certificat de test (faux service push en HTTPS)
-        run: openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -keyout /tmp/key.pem -out /tmp/cert.pem -days 1 -subj "/CN=localhost"
+        run: openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -keyout /tmp/key.pem -out /tmp/cert.pem -days 1 -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost"
       - name: Envoi de bout en bout (faux Supabase + faux service push)
         working-directory: supabase/functions/send-reminders
-        run: deno test -A --unsafely-ignore-certificate-errors=localhost --config deno.json
+        # Le certificat de test est AJOUTÉ aux autorités de confiance (on ne désactive pas la vérification TLS).
+        run: deno test -A --cert /tmp/cert.pem --config deno.json
         env:
           TEST_CERT: /tmp/cert.pem
           TEST_KEY: /tmp/key.pem
+          NODE_EXTRA_CA_CERTS: /tmp/cert.pem

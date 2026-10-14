@@ -1,6 +1,7 @@
 // Test de bout en bout de l'envoi, sans Supabase ni vrai service de notification :
 // un faux PostgREST et un faux service push (HTTPS) tournent en local.
-// Lancer : TEST_CERT=cert.pem TEST_KEY=key.pem deno test -A --unsafely-ignore-certificate-errors=localhost --config deno.json
+// Lancer (certificat auto-signé pour localhost, ajouté aux autorités de confiance) :
+//   TEST_CERT=cert.pem TEST_KEY=key.pem NODE_EXTRA_CA_CERTS=cert.pem deno test -A --cert cert.pem --config deno.json
 import webpush from 'npm:web-push@3.6.7';
 
 const H = 3_600_000;
