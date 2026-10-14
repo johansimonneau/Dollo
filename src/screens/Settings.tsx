@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { InviteByEmail } from '../components/InviteByEmail';
+import { Members } from '../components/Members';
 import { useToast } from '../components/toast';
 import { errorMessage, type Store } from '../data/store';
 import { eventsToCsv } from '../lib/labels';
@@ -25,6 +26,16 @@ export function Settings({ store, baby, events, email, now, onBabyUpdated, onAdd
   const [name, setName] = useState(baby.name);
   const [birthDate, setBirthDate] = useState(baby.birthDate ?? '');
   const [busy, setBusy] = useState(false);
+
+  /** Relit le bébé (ex. : code d'invitation renouvelé par la base après le retrait d'un parent). */
+  const refreshBaby = async () => {
+    try {
+      const fresh = (await store.listBabies()).find((b) => b.id === baby.id);
+      if (fresh) onBabyUpdated(fresh);
+    } catch {
+      /* l'affichage du code se mettra à jour au prochain chargement */
+    }
+  };
 
   const dirty = name.trim() !== baby.name || (birthDate || null) !== baby.birthDate;
 
@@ -110,6 +121,7 @@ export function Settings({ store, baby, events, email, now, onBabyUpdated, onAdd
         <h2 className="section-title flush">Partager avec l'autre parent</h2>
         {store.mode === 'cloud' ? (
           <>
+            <Members store={store} baby={baby} myEmail={email} onBabyChanged={() => void refreshBaby()} />
             <InviteByEmail store={store} baby={baby} now={now} />
             {baby.inviteCode && (
               <>

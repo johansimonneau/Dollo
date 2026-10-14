@@ -76,6 +76,14 @@ export function createLocalStore(): Store {
       /* aucune invitation en mode local */
     },
 
+    async listMembers() {
+      return [];
+    },
+
+    async removeMember() {
+      throw new StoreError('Le partage entre parents nécessite la synchronisation en ligne (Supabase).');
+    },
+
     async acceptInvitations() {
       return [];
     },

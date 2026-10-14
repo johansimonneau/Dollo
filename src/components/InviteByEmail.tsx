@@ -28,7 +28,20 @@ function statusLabel(i: Invitation, now: number): string {
   }
 }
 
-/** Invitation d'un parent par e-mail : il reçoit un code, se connecte avec cette adresse et retrouve le bébé. */
+/** Message à envoyer à la personne invitée (SMS, WhatsApp, e-mail…). */
+export function invitationMessage(babyName: string, email: string, appUrl: string): string {
+  return (
+    `Je t'invite à suivre ${babyName} sur Dollo (tétées, biberons, couches, sommeil).\n\n` +
+    `1. Ouvre ${appUrl}\n` +
+    `2. « Créer un compte » avec l'adresse ${email} et un mot de passe\n` +
+    `3. Clique sur le lien de confirmation reçu par e-mail, puis connecte-toi : tu arriveras directement sur le suivi de ${babyName}.`
+  );
+}
+
+/**
+ * Invitation d'un parent : l'adresse est enregistrée, puis l'app partage un message (SMS, WhatsApp…) avec le lien.
+ * La personne crée son compte avec mot de passe et cette adresse, et retrouve le bébé dès sa première connexion.
+ */
 export function InviteByEmail({ store, baby, now }: Props) {
   const toast = useToast();
   const [email, setEmail] = useState('');
@@ -38,7 +51,8 @@ export function InviteByEmail({ store, baby, now }: Props) {
 
   const load = useCallback(async () => {
     try {
-      setInvitations(await store.listInvitations(baby.id));
+      // Les invitations acceptées n'apparaissent plus ici : la personne figure dans la liste des membres.
+      setInvitations((await store.listInvitations(baby.id)).filter((i) => !i.acceptedAt));
       setLoadError(null);
     } catch (e) {
       setLoadError(errorMessage(e));
@@ -49,20 +63,33 @@ export function InviteByEmail({ store, baby, now }: Props) {
     void load();
   }, [load]);
 
+  /** Ouvre le menu de partage du téléphone ; à défaut (ordinateur), copie le message. */
+  const share = async (address: string) => {
+    const text = invitationMessage(baby.name, address, `${window.location.origin}/?app`);
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: `Suivre ${baby.name} sur Dollo`, text });
+        return;
+      } catch (e) {
+        if ((e as Error)?.name === 'AbortError') return; // partage annulé par l'utilisateur
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.show(`Message copié : collez-le dans un SMS, WhatsApp ou un e-mail à ${address}.`, { durationMs: 8000 });
+    } catch {
+      toast.show(`Envoyez ce lien à ${address} : ${window.location.origin}/?app`, { durationMs: 12_000 });
+    }
+  };
+
   const send = async (address: string) => {
     setBusy(true);
     try {
-      const res = await store.inviteParent(baby.id, address);
-      if (res.emailSent) {
-        toast.show(`Invitation envoyée à ${res.invitation.email}.`);
-      } else {
-        toast.show(
-          `Invitation enregistrée, mais l'e-mail n'est pas parti (${res.emailError}). ${res.invitation.email} rejoindra ${baby.name} en se connectant avec cette adresse.`,
-          { tone: 'error', durationMs: 12_000 },
-        );
-      }
+      const invitation = await store.inviteParent(baby.id, address);
+      toast.show(`Invitation enregistrée pour ${invitation.email}.`);
       setEmail('');
       await load();
+      await share(invitation.email);
     } catch (e) {
       toast.show(errorMessage(e), { tone: 'error' });
     } finally {
@@ -102,7 +129,10 @@ export function InviteByEmail({ store, baby, now }: Props) {
           Inviter
         </button>
       </form>
-      <p className="hint">La personne reçoit un code par e-mail, se connecte avec cette adresse, et retrouve {baby.name} automatiquement.</p>
+      <p className="hint">
+        Envoyez-lui ensuite le lien (SMS, WhatsApp…) : elle crée son compte avec cette adresse et un mot de passe, et retrouve {baby.name}{' '}
+        automatiquement.
+      </p>
 
       {loadError && <p className="form-error">Invitations indisponibles : {loadError}</p>}
       {invitations.length > 0 && (
@@ -117,9 +147,15 @@ export function InviteByEmail({ store, baby, now }: Props) {
                 </span>
                 {status !== 'accepted' && (
                   <span className="invitation-actions">
-                    <button type="button" className="link-btn" disabled={busy} onClick={() => void send(i.email)}>
-                      Renvoyer
-                    </button>
+                    {status === 'pending' ? (
+                      <button type="button" className="link-btn" onClick={() => void share(i.email)}>
+                        Envoyer le lien
+                      </button>
+                    ) : (
+                      <button type="button" className="link-btn" disabled={busy} onClick={() => void send(i.email)}>
+                        Renouveler
+                      </button>
+                    )}
                     <button type="button" className="link-btn danger" onClick={() => void cancel(i)}>
                       Annuler
                     </button>

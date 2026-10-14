@@ -38,7 +38,7 @@ Sur [supabase.com](https://supabase.com) → *New project*. Choisissez une **ré
 > Utilisez un projet vierge, pas une base qui sert déjà à autre chose : la migration crée les tables `babies`, `baby_members`, `events` et `baby_invitations` dans le schéma `public`.
 
 ### 2. Créer les tables
-*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`.
+*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`.
 
 ### 3. Récupérer les deux clés publiques
 *Project Settings → API Keys* (ou *API*) :
@@ -58,29 +58,18 @@ Pour le développement local : copiez `.env.example` vers `.env.local`.
 *Authentication → URL Configuration* : **Site URL** = l'adresse de production de l'app ; ajoutez-la aussi dans *Redirect URLs*.
 *Authentication → Providers → Email* : laissez l'e-mail activé et **gardez « Confirm email » activé** (c'est ce qui garantit qu'une invitation n'est acceptée que par le vrai propriétaire de l'adresse).
 
-### 6. Régler les e-mails (indispensable pour les invitations)
-**a) Un vrai service d'envoi.** L'envoi intégré à Supabase est « pour démonstration » : quelques e-mails par heure, sans garantie. Pour les invitations, branchez le vôtre dans *Authentication → SMTP Settings* (Resend, Brevo, Postmark… un compte gratuit suffit pour une famille).
-
-**b) Afficher le code dans les e-mails.** *Authentication → Email Templates* : dans les modèles **« Confirm signup »** et **« Magic Link »**, remplacez le contenu par ceci (le code permet de se connecter *dans* l'app installée, là où un lien s'ouvrirait dans le navigateur) :
-
-```html
-<h2>Votre code Dollo</h2>
-<p>Saisissez ce code dans l'application pour vous connecter :</p>
-<p style="font-size:28px;letter-spacing:6px"><strong>{{ .Token }}</strong></p>
-<p>Si un proche vous a invité(e) à suivre bébé, vous retrouverez son suivi automatiquement après connexion.</p>
-<p>Ouvrir Dollo : <a href="{{ .SiteURL }}">{{ .SiteURL }}</a></p>
-<p style="color:#666;font-size:12px">Vous pouvez aussi <a href="{{ .ConfirmationURL }}">vous connecter via ce lien</a>.</p>
-```
+### 6. E-mails (facultatif)
+Supabase n'envoie que deux e-mails : la **confirmation d'adresse** à la création du compte et le lien **« mot de passe oublié »**. Les modèles par défaut suffisent. L'envoi intégré est limité à quelques e-mails par heure : pour plus de fiabilité, branchez votre propre service dans *Authentication → SMTP Settings* (Gmail avec un mot de passe d'application, Resend, Brevo…).
 
 ### 7. Vérifier
 1. Ouvrez l'app → *Créer un compte* (e-mail, mot de passe, confirmation) → cliquez sur le lien reçu par e-mail → *Se connecter*. Créez le bébé.
-2. *Réglages → Partager avec l'autre parent* : saisissez l'e-mail de l'autre parent → *Inviter*.
+2. *Réglages → Partager avec l'autre parent* : saisissez l'e-mail de l'autre parent → *Inviter* → envoyez-lui le message proposé (SMS, WhatsApp…) avec le lien de l'app.
 3. L'autre parent crée son compte avec **cette même adresse**, confirme l'e-mail, se connecte : il arrive **directement** sur le bébé, sans rien recopier.
 
-Si l'e-mail ne part pas, l'invitation reste valable : la personne peut se connecter avec cette adresse et rejoindra le bébé automatiquement. Le **code d'invitation** à recopier reste disponible en alternative.
+Le **code d'invitation** à recopier reste disponible en alternative. Le créateur du suivi peut **retirer** un parent (*Réglages → Partager*) : il perd l'accès et le code d'invitation est renouvelé.
 
 ### Comment fonctionne l'invitation
-Le parent invite une adresse → la base enregistre l'invitation (valable 14 jours, 5 en attente au plus) et Supabase envoie un code → l'invité se connecte avec **cette adresse vérifiée** → l'app appelle `accept_invitations()` qui l'ajoute au bébé. Une adresse non vérifiée, une invitation expirée ou annulée n'ouvrent aucun accès.
+Le parent invite une adresse → la base enregistre l'invitation (valable 14 jours, 5 en attente au plus) et l'app partage un lien → l'invité crée son compte avec **cette adresse**, la confirme et se connecte → l'app appelle `accept_invitations()` qui l'ajoute au bébé. Une adresse non vérifiée, une invitation expirée ou annulée n'ouvrent aucun accès.
 
 ---
 
@@ -105,7 +94,6 @@ Projet Vite standard : sur Vercel, framework *Vite*, commande `npm run build`, d
 - **Pas de file d'attente hors-ligne en mode cloud** : l'interface se charge sans réseau, mais une écriture faite sans connexion échoue avec un message au lieu d'être mise en file. À traiter en priorité avant un usage réel (wifi capricieux la nuit).
 - Pas de notifications push (rappel de tétée, fenêtre de sieste) ni de courbes de croissance.
 - Les données du mode local ne sont pas migrées automatiquement vers le compte cloud.
-- Pas de gestion des membres (retirer un parent déjà ajouté) : à ajouter avec le partage nounou.
 
 ---
 

@@ -1,5 +1,5 @@
 import { Icon } from '../components/icons';
-import { eventTitle, fmtLiters, SIDE_LABEL, summaryText } from '../lib/labels';
+import { eventTitle, fmtVolume, SIDE_LABEL } from '../lib/labels';
 import { summarize, lastOf, ongoing, suggestNextSide } from '../lib/summary';
 import { DAY, HOUR, MINUTE, fmtClock, fmtDuration, fmtTimer, timeAgo } from '../lib/time';
 import type { BabyEvent, BreastSide, EventKind } from '../lib/types';
@@ -79,7 +79,7 @@ export function Today({ events, now, actions }: Props) {
             <Icon.Bottle size={28} />
             <span className="quick-text">
               <span className="quick-label">Biberon</span>
-              {day.bottleMl > 0 && <span className="quick-sub">{fmtLiters(day.bottleMl)}{'\u00a0'}sur{'\u00a0'}24{'\u00a0'}h</span>}
+              {day.bottleMl > 0 && <span className="quick-sub">{fmtVolume(day.bottleMl)}{'\u00a0'}sur{'\u00a0'}24{'\u00a0'}h</span>}
             </span>
           </button>
           <button type="button" className="quick kind-diaper" onClick={actions.openDiaper}>
@@ -113,8 +113,8 @@ export function Today({ events, now, actions }: Props) {
           <Tile
             kind="bottle"
             label="Biberons"
-            value={day.bottleMl > 0 ? fmtLiters(day.bottleMl) : '—'}
-            detail={day.bottleCount > 0 ? summaryText('bottle', day) : 'aucun biberon'}
+            value={day.bottleMl > 0 ? fmtVolume(day.bottleMl) : '—'}
+            detail={day.bottleCount > 0 ? `${day.bottleCount}\u00a0biberon${day.bottleCount > 1 ? 's' : ''} · bu sur 24\u00a0h` : 'aucun biberon'}
           />
           <Tile kind="diaper" label="Couches" value={String(day.diaperCount)} detail={`${day.pee} pipi · ${day.poop} caca`} />
           <Tile kind="sleep" label="Sommeil" value={day.sleepMs > 0 ? fmtDuration(day.sleepMs) : '—'} detail="cumul sur 24 h" />

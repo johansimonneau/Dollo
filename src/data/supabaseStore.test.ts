@@ -120,6 +120,25 @@ describe('supabaseStore', () => {
     expect(b).toMatchObject({ id: 'b1', name: 'Léa', birthDate: '2026-09-20', inviteCode: 'ABCDE12345' });
   });
 
+  describe('membres', () => {
+    it('liste les membres avec leur e-mail et leur rôle', async () => {
+      const { client, calls } = fakeClient({ data: [{ user_id: 'u1', email: 'maman@example.com', role: 'owner', joined_at: '2026-10-13T10:00:00Z' }] });
+      const list = await createSupabaseStore(client).listMembers('b1');
+      expect(calls.rpc).toEqual(['list_members', { p_baby_id: 'b1' }]);
+      expect(list).toEqual([{ userId: 'u1', email: 'maman@example.com', role: 'owner', joinedAt: '2026-10-13T10:00:00Z' }]);
+    });
+
+    it('retire un parent, et traduit les refus', async () => {
+      const ok = fakeClient({ data: null });
+      await createSupabaseStore(ok.client).removeMember('b1', 'u2');
+      expect(ok.calls.rpc).toEqual(['remove_member', { p_baby_id: 'b1', p_user_id: 'u2' }]);
+      const refused = fakeClient({ error: { message: 'forbidden' } });
+      await expect(createSupabaseStore(refused.client).removeMember('b1', 'u2')).rejects.toThrow("Vous n'avez pas le droit de faire cela.");
+      const missing = fakeClient({ error: { message: 'Could not find the function public.remove_member(p_baby_id, p_user_id) in the schema cache' } });
+      await expect(createSupabaseStore(missing.client).removeMember('b1', 'u2')).rejects.toThrow('appliquez les migrations Supabase');
+    });
+  });
+
   describe('invitations par e-mail', () => {
     const invRow = {
       id: 'i1',
@@ -130,30 +149,17 @@ describe('supabaseStore', () => {
       accepted_at: null,
     };
 
-    it("enregistre l'invitation PUIS envoie le code à l'adresse normalisée par la base", async () => {
+    it("enregistre l'invitation sans envoyer d'e-mail de connexion (l'invité crée son compte avec mot de passe)", async () => {
       const { client, calls } = fakeClient({ data: invRow });
-      const res = await createSupabaseStore(client).inviteParent('b1', ' Papa@Example.com ');
+      const inv = await createSupabaseStore(client).inviteParent('b1', ' Papa@Example.com ');
       expect(calls.rpc).toEqual(['invite_parent', { p_baby_id: 'b1', p_email: ' Papa@Example.com ' }]);
-      // l'e-mail part vers l'adresse renvoyée par la base (déjà en minuscules), et crée le compte si besoin
-      expect(calls.otp).toEqual({ email: 'papa@example.com', options: { shouldCreateUser: true } });
-      expect(res).toEqual({
-        invitation: { id: 'i1', babyId: 'b1', email: 'papa@example.com', createdAt: '2026-10-13T10:00:00Z', expiresAt: '2026-10-27T10:00:00Z', acceptedAt: null },
-        emailSent: true,
-      });
-    });
-
-    it("si l'e-mail ne part pas, l'invitation reste valable et l'erreur est expliquée en français", async () => {
-      const { client } = fakeClient({ data: invRow }, { message: 'email rate limit exceeded' });
-      const res = await createSupabaseStore(client).inviteParent('b1', 'papa@example.com');
-      expect(res.invitation.id).toBe('i1');
-      expect(res.emailSent).toBe(false);
-      expect(res.emailError).toBe("Trop d'e-mails envoyés pour le moment. Réessayez dans quelques minutes.");
-    });
-
-    it("n'envoie aucun e-mail quand la base refuse l'invitation", async () => {
-      const { client, calls } = fakeClient({ error: { message: 'already_member' } });
-      await expect(createSupabaseStore(client).inviteParent('b1', 'maman@example.com')).rejects.toThrow('Cette personne a déjà accès à ce bébé.');
       expect(calls.otp).toBeUndefined();
+      expect(inv).toEqual({ id: 'i1', babyId: 'b1', email: 'papa@example.com', createdAt: '2026-10-13T10:00:00Z', expiresAt: '2026-10-27T10:00:00Z', acceptedAt: null });
+    });
+
+    it('traduit le refus de la base', async () => {
+      const { client } = fakeClient({ error: { message: 'already_member' } });
+      await expect(createSupabaseStore(client).inviteParent('b1', 'maman@example.com')).rejects.toThrow('Cette personne a déjà accès à ce bébé.');
     });
 
     it.each([

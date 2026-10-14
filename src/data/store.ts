@@ -1,11 +1,4 @@
-import type { Baby, BabyEvent, Invitation, NewEvent } from '../lib/types';
-
-export interface InviteResult {
-  invitation: Invitation;
-  /** false si l'e-mail n'a pas pu partir : l'invitation reste valable (la personne rejoint en se connectant avec cette adresse). */
-  emailSent: boolean;
-  emailError?: string;
-}
+import type { Baby, BabyEvent, Invitation, Member, NewEvent } from '../lib/types';
 
 export interface BabyInput {
   name: string;
@@ -28,9 +21,16 @@ export interface Store {
   regenerateInviteCode(babyId: string): Promise<string>;
   /** Invitations envoyées pour ce bébé (en attente, expirées, acceptées). */
   listInvitations(babyId: string): Promise<Invitation[]>;
-  /** Invite un parent par e-mail : enregistre l'invitation puis envoie un code de connexion à cette adresse. */
-  inviteParent(babyId: string, email: string): Promise<InviteResult>;
+  /**
+   * Enregistre l'invitation d'une adresse. Aucun e-mail n'est envoyé : l'app partage un lien, la personne crée son compte
+   * (avec mot de passe) avec cette adresse et rejoint le bébé dès sa première connexion.
+   */
+  inviteParent(babyId: string, email: string): Promise<Invitation>;
   cancelInvitation(id: string): Promise<void>;
+  /** Personnes ayant accès au bébé (propriétaire en premier). */
+  listMembers(babyId: string): Promise<Member[]>;
+  /** Retire un parent (propriétaire uniquement) ; le code d'invitation est renouvelé. */
+  removeMember(babyId: string, userId: string): Promise<void>;
   /** À appeler à la connexion : rejoint les bébés pour lesquels l'adresse de l'utilisateur a été invitée. */
   acceptInvitations(): Promise<Baby[]>;
   listEvents(babyId: string, sinceIso: string): Promise<BabyEvent[]>;
