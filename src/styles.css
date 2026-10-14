@@ -22,6 +22,7 @@
   --sleep:  #7048e8;  --sleep-2:  #5f3dc4;  --sleep-ink:  #ffffff;  --sleep-bg:  #e5dbff;  --sleep-fg:  #5f3dc4;
   --temp:   #e8590c;  --temp-2:   #d9480f;  --temp-ink:   #ffffff;  --temp-bg:   #ffe8d9;  --temp-fg:   #b8400b;
   --med:    #0ca678;  --med-2:    #099268;  --med-ink:    #ffffff;  --med-bg:    #d3f9e8;  --med-fg:    #087f5b;
+  --pump:   #1098ad;  --pump-2:   #0c8599;  --pump-ink:   #ffffff;  --pump-bg:   #d0f4f9;  --pump-fg:   #0b7285;
 
   --tone-sleep: #845ef7;
   --tone-breast: #f06595;
@@ -56,6 +57,7 @@
     --sleep-bg:  #2b2060;  --sleep-fg:  #d0bfff;
     --temp-bg:   #4a2310;  --temp-fg:   #ffc078;
     --med-bg:    #0b3b2c;  --med-fg:    #8ce99a;
+    --pump-bg:   #0b3a42;  --pump-fg:   #99e9f2;
 
     --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 30%);
   }
@@ -433,3 +435,23 @@ ul { list-style: none; margin: 0; padding: 0; }
 .vax-status.late { background: var(--temp-bg); color: var(--temp-fg); }
 .health-list li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 6px 0; border-bottom: 1px solid var(--border); }
 .health-list li.fever strong { color: var(--temp); }
+.kind-pump { --k: var(--pump); --k2: var(--pump-2); --k-ink: var(--pump-ink); --k-bg: var(--pump-bg); --k-fg: var(--pump-fg); }
+.milk-totals { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0 0 12px; }
+.milk-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.milk-bag { padding: 12px 14px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface); }
+.milk-bag.soon { border-color: var(--diaper); }
+.milk-bag.expired { border-color: var(--temp); background: var(--temp-bg); }
+.milk-head { display: flex; justify-content: space-between; align-items: center; }
+.milk-storage { font-size: 0.78rem; font-weight: 750; padding: 3px 10px; border-radius: 99px; background: var(--pump-bg); color: var(--pump-fg); }
+.milk-storage.freezer { background: var(--bottle-bg); color: var(--bottle-fg); }
+.milk-when { margin: 4px 0 8px; color: var(--muted); font-size: 0.9rem; }
+.milk-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.btn.small { min-height: 40px; padding: 0 14px; font-size: 0.92rem; }
+.milk-card { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; border-radius: 18px; border: 1px solid var(--border); background: var(--surface); color: var(--text); text-align: left; box-shadow: var(--shadow); }
+.milk-card span { display: flex; flex-direction: column; }
+.milk-card small { color: var(--muted); }
+.health-row.three { grid-template-columns: repeat(3, 1fr); }
+.health-row.three .health-btn { flex-direction: column; gap: 4px; font-size: 0.88rem; min-height: 64px; }
+.reminder-banner.kind-pump { background: var(--pump-bg); color: var(--pump-fg); }
+.banner-btn { width: 100%; border: 0; text-align: left; font: inherit; font-weight: 650; }
+.milk-card { margin-top: 12px; }

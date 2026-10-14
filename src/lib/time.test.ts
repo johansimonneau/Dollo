@@ -86,7 +86,7 @@ describe('eventsToCsv', () => {
 });
 
 describe('summaryText', () => {
-  const base: Summary = { breastCount: 0, breastMs: 0, bottleCount: 0, bottleMl: 0, diaperCount: 0, pee: 0, poop: 0, sleepMs: 0, sleepCount: 0, tempCount: 0, tempMax: null, medCount: 0 };
+  const base: Summary = { breastCount: 0, breastMs: 0, bottleCount: 0, bottleMl: 0, diaperCount: 0, pee: 0, poop: 0, sleepMs: 0, sleepCount: 0, tempCount: 0, tempMax: null, medCount: 0, pumpCount: 0, pumpMl: 0 };
 
   it('exprime la quantité de biberon en ml sous le litre, en litres au-delà (sans « bus »)', () => {
     expect(summaryText('bottle', { ...base, bottleCount: 2, bottleMl: 180 })).toBe('2 biberons · 180\u00a0ml');

@@ -3,7 +3,9 @@ import { Icon, KIND_ICON } from '../components/icons';
 import { eventTitle, FEVER_C, fmtTemp, fmtVolume, SIDE_LABEL } from '../lib/labels';
 import { summarize, lastOf, ongoing, suggestNextSide } from '../lib/summary';
 import { DAY, HOUR, MINUTE, fmtClock, fmtDuration, fmtTimer, timeAgo } from '../lib/time';
-import type { BabyEvent, BreastSide, EventKind } from '../lib/types';
+import type { BabyEvent, BreastSide, EventKind, MilkBag } from '../lib/types';
+import { activeBags, milkStatus, stockTotals } from '../lib/milk';
+import { fmtLimit } from '../components/MilkStock';
 
 
 export interface TodayActions {
@@ -14,6 +16,8 @@ export interface TodayActions {
   openBottle: () => void;
   openTemp: () => void;
   openMed: () => void;
+  openPump: () => void;
+  openMilk: () => void;
   edit: (event: BabyEvent) => void;
 }
 
@@ -26,11 +30,13 @@ interface Props {
   birthDate?: string | null;
   /** « Vaccins des 2 mois : prévus vers le 1 oct. 2026 » (parents), ou null. */
   vaccinesDue?: string | null;
+  /** Stock de lait tiré (carte + alerte de date limite). */
+  milkBags?: MilkBag[];
 }
 
 const tz = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris';
 
-export function Today({ events, now, actions, reminderPrefs, birthDate, vaccinesDue }: Props) {
+export function Today({ events, now, actions, reminderPrefs, birthDate, vaccinesDue, milkBags = [] }: Props) {
   const running = ongoing(events);
   const nextSide = suggestNextSide(events);
   const sleeping = running.find((e) => e.kind === 'sleep');
@@ -42,6 +48,10 @@ export function Today({ events, now, actions, reminderPrefs, birthDate, vaccines
   // Fièvre : dernière température des 12 dernières heures à 38 °C ou plus.
   const lastTemp = lastOf(events, 'temp');
   const fever = lastTemp && lastTemp.tempC != null && lastTemp.tempC >= FEVER_C && now - new Date(lastTemp.startedAt).getTime() < 12 * HOUR ? lastTemp : null;
+  const stock = stockTotals(milkBags, now);
+  const hasStock = activeBags(milkBags).length > 0;
+  // Lait au frigo / décongelé bientôt périmé (ou à jeter) : le congélateur n'est pas urgent.
+  const urgentMilk = activeBags(milkBags).find((b) => b.storage !== 'freezer' && milkStatus(b, now) !== 'ok');
   const underThreeMonths = birthDate ? now - new Date(`${birthDate}T00:00:00`).getTime() < 91 * DAY : false;
   const nextFeed = reminderPrefs ? nextFeedAt(events, reminderPrefs) : null;
 
@@ -88,6 +98,16 @@ export function Today({ events, now, actions, reminderPrefs, birthDate, vaccines
               : 'Surveillez bébé (boit-il bien ? est-il réactif ?). En cas de doute ou de signe inquiétant, appelez votre médecin ou le 15.'}
           </p>
         </section>
+      )}
+
+      {urgentMilk && (
+        <button type="button" className="reminder-banner kind-pump banner-btn" onClick={actions.openMilk}>
+          <Icon.Drop size={24} />
+          <span>
+            {milkStatus(urgentMilk, now) === 'expired' ? `Lait périmé à jeter (${urgentMilk.volumeMl} ml)` : `Lait à utiliser ${fmtLimit(urgentMilk)} (${urgentMilk.volumeMl} ml)`}
+            <small>Touchez pour voir le stock.</small>
+          </span>
+        </button>
       )}
 
       {vaccinesDue && (
@@ -157,14 +177,28 @@ export function Today({ events, now, actions, reminderPrefs, birthDate, vaccines
             </span>
           </button>
         </div>
-        <div className="health-row">
+        <div className="health-row three">
           <button type="button" className="health-btn kind-temp" onClick={actions.openTemp}>
             <Icon.Thermo size={22} /> Température
           </button>
           <button type="button" className="health-btn kind-med" onClick={actions.openMed}>
             <Icon.Pill size={22} /> Médicament
           </button>
+          <button type="button" className="health-btn kind-pump" onClick={actions.openPump}>
+            <Icon.Drop size={22} /> Tirage
+          </button>
         </div>
+        {hasStock && (
+          <button type="button" className="milk-card kind-pump" onClick={actions.openMilk}>
+            <Icon.Drop size={24} />
+            <span>
+              <strong>Stock de lait</strong>
+              <small>
+                Frigo {fmtVolume(stock.fridgeMl)} ({stock.fridgeCount}) · Congélateur {fmtVolume(stock.freezerMl)} ({stock.freezerCount})
+              </small>
+            </span>
+          </button>
+        )}
       </section>
 
       <section aria-label="Depuis la dernière fois">
@@ -182,6 +216,7 @@ export function Today({ events, now, actions, reminderPrefs, birthDate, vaccines
           {/* Santé : seulement si quelque chose a déjà été noté (pas de lignes vides pour un bébé en bonne santé). */}
           {lastOf(events, 'med') && <SinceRow kind="med" event={lastOf(events, 'med')} now={now} onClick={actions.edit} />}
           {lastTemp && <SinceRow kind="temp" event={lastTemp} now={now} onClick={actions.edit} />}
+          {lastOf(events, 'pump') && <SinceRow kind="pump" event={lastOf(events, 'pump')} now={now} onClick={actions.edit} />}
         </ul>
       </section>
 
@@ -210,6 +245,7 @@ const SINCE_LABEL: Record<EventKind, string> = {
   sleep: 'Sommeil',
   temp: 'Température',
   med: 'Dernier médicament',
+  pump: 'Dernier tirage',
 };
 
 function SinceRow({ kind, event, now, onClick }: { kind: EventKind; event: BabyEvent | null; now: number; onClick: (e: BabyEvent) => void }) {

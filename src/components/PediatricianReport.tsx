@@ -60,6 +60,8 @@ export function PediatricianReport({ store, baby, events, now, onClose }: Props)
   const since = now - DAYS * DAY;
   const temps = events.filter((e) => e.kind === 'temp' && e.tempC != null && new Date(e.startedAt).getTime() >= since);
   const meds = events.filter((e) => e.kind === 'med' && new Date(e.startedAt).getTime() >= since);
+  const pumps = events.filter((e) => e.kind === 'pump' && new Date(e.startedAt).getTime() >= since);
+  const pumpMl = pumps.reduce((t, e) => t + (e.amountMl ?? 0), 0);
   const doneVaccines = VACCINE_CALENDAR.filter((d) => vaccines.some((v) => v.code === d.code)).map((d) => ({
     dose: d,
     on: vaccines.find((v) => v.code === d.code)!.givenOn,
@@ -189,6 +191,16 @@ export function PediatricianReport({ store, baby, events, now, onClose }: Props)
           )}
           {sex && <p className="report-note">Courbes de référence OMS (3e, 15e, 50e, 85e, 97e percentiles).</p>}
         </section>
+
+        {pumps.length > 0 && (
+          <section>
+            <h2>Tire-lait (7 derniers jours)</h2>
+            <p>
+              {pumps.length} tirage{pumps.length > 1 ? 's' : ''}
+              {pumpMl > 0 && ` · ${fmtVolume(pumpMl)} au total, soit ${fmtVolume(Math.round(pumpMl / DAYS))} par jour en moyenne`}
+            </p>
+          </section>
+        )}
 
         {(temps.length > 0 || meds.length > 0) && (
           <section>

@@ -1,7 +1,7 @@
 import { useState, type FormEvent, type JSX } from 'react';
-import { DIAPER_LABEL, KIND_LABEL, SIDE_LABEL } from '../lib/labels';
+import { DIAPER_LABEL, KIND_LABEL, PUMP_SIDE_LABEL, SIDE_LABEL } from '../lib/labels';
 import { MINUTE, fromLocalInput, toLocalInput } from '../lib/time';
-import type { BabyEvent, BreastSide, DiaperType, EventKind, NewEvent } from '../lib/types';
+import type { BabyEvent, DiaperType, EventKind, NewEvent, PumpSide } from '../lib/types';
 import { errorMessage } from '../data/store';
 import { Icon } from './icons';
 import { Sheet } from './Sheet';
@@ -23,6 +23,7 @@ const KINDS: { kind: EventKind; icon: (p: { size?: number }) => JSX.Element }[] 
   { kind: 'sleep', icon: Icon.Moon },
   { kind: 'temp', icon: Icon.Thermo },
   { kind: 'med', icon: Icon.Pill },
+  { kind: 'pump', icon: Icon.Drop },
 ];
 
 /** « 38,2 » ou « 38.2 » → 38.2 ; vide ou illisible → null. */
@@ -37,7 +38,7 @@ export function EventSheet({ event, onSave, onDelete, onClose }: Props) {
   const [kind, setKind] = useState<EventKind | null>(event?.kind ?? null);
   const [start, setStart] = useState(toLocalInput(event?.startedAt ?? new Date().toISOString()));
   const [end, setEnd] = useState(event?.endedAt ? toLocalInput(event.endedAt) : '');
-  const [side, setSide] = useState<BreastSide>(event?.side ?? 'left');
+  const [side, setSide] = useState<PumpSide>(event?.side ?? (event?.kind === 'pump' ? 'both' : 'left'));
   const [duration, setDuration] = useState(event?.endedAt ? String(minutesBetween(event.startedAt, event.endedAt)) : '');
   const [ml, setMl] = useState(event?.amountMl != null ? String(event.amountMl) : '');
   const [diaperType, setDiaperType] = useState<DiaperType>(event?.diaperType ?? 'pee');
@@ -74,7 +75,7 @@ export function EventSheet({ event, onSave, onDelete, onClose }: Props) {
     if (new Date(startIso).getTime() > Date.now() + 5 * MINUTE) return setError("L'heure est dans le futur.");
 
     let endedAt: string | null = null;
-    if (kind === 'breast' && duration.trim() !== '') {
+    if ((kind === 'breast' || kind === 'pump') && duration.trim() !== '') {
       const m = Number(duration);
       if (!Number.isFinite(m) || m < 0 || m > 180) return setError('Durée invalide (de 0 à 180 minutes).');
       endedAt = new Date(new Date(startIso).getTime() + Math.round(m) * MINUTE).toISOString();
@@ -87,7 +88,7 @@ export function EventSheet({ event, onSave, onDelete, onClose }: Props) {
     }
 
     let amountMl: number | null = null;
-    if (kind === 'bottle' && ml.trim() !== '') {
+    if ((kind === 'bottle' || kind === 'pump') && ml.trim() !== '') {
       const v = Number(ml);
       if (!Number.isFinite(v) || v < 0 || v > 1000) return setError('Quantité invalide (de 0 à 1000 ml).');
       amountMl = Math.round(v);
@@ -106,7 +107,7 @@ export function EventSheet({ event, onSave, onDelete, onClose }: Props) {
         kind,
         startedAt: startIso,
         endedAt,
-        side: kind === 'breast' ? side : null,
+        side: kind === 'breast' ? (side === 'both' ? 'left' : side) : kind === 'pump' ? side : null,
         amountMl,
         diaperType: kind === 'diaper' ? diaperType : null,
         note: note.trim() || null,
@@ -134,15 +135,15 @@ export function EventSheet({ event, onSave, onDelete, onClose }: Props) {
   return (
     <Sheet title={`${event ? 'Modifier' : 'Ajouter'} · ${KIND_LABEL[kind].toLowerCase()}`} onClose={onClose}>
       <form onSubmit={submit} noValidate>
-        {kind === 'breast' && (
+        {(kind === 'breast' || kind === 'pump') && (
           <div className="field">
             <span className="label" id="side-label">
               Sein
             </span>
             <div className="segmented" role="group" aria-labelledby="side-label">
-              {(['left', 'right'] as const).map((s) => (
+              {(kind === 'pump' ? (['left', 'right', 'both'] as const) : (['left', 'right'] as const)).map((s) => (
                 <button key={s} type="button" aria-pressed={side === s} onClick={() => setSide(s)}>
-                  {SIDE_LABEL[s]}
+                  {kind === 'pump' ? PUMP_SIDE_LABEL[s] : SIDE_LABEL[s as 'left' | 'right']}
                 </button>
               ))}
             </div>
@@ -169,7 +170,7 @@ export function EventSheet({ event, onSave, onDelete, onClose }: Props) {
           <input type="datetime-local" className="input" value={start} onChange={(e) => setStart(e.target.value)} required />
         </label>
 
-        {kind === 'breast' && (
+        {(kind === 'breast' || kind === 'pump') && (
           <label className="field">
             <span className="label">Durée (minutes)</span>
             <input
@@ -177,7 +178,7 @@ export function EventSheet({ event, onSave, onDelete, onClose }: Props) {
               inputMode="numeric"
               pattern="[0-9]*"
               value={duration}
-              placeholder="Vide = tétée en cours"
+              placeholder={kind === 'pump' ? 'Facultatif' : 'Vide = tétée en cours'}
               onChange={(e) => setDuration(e.target.value.replace(/[^0-9]/g, ''))}
             />
           </label>
@@ -191,9 +192,9 @@ export function EventSheet({ event, onSave, onDelete, onClose }: Props) {
           </label>
         )}
 
-        {kind === 'bottle' && (
+        {(kind === 'bottle' || kind === 'pump') && (
           <label className="field">
-            <span className="label">Quantité bue (ml)</span>
+            <span className="label">{kind === 'pump' ? 'Quantité tirée (ml)' : 'Quantité bue (ml)'}</span>
             <input
               className="input"
               inputMode="numeric"

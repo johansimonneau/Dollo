@@ -31,6 +31,12 @@ export const Icon = {
       <path d="M12 9v7" />
     </Svg>
   ),
+  /** Tire-lait : une goutte. */
+  Drop: (p: P) => (
+    <Svg {...p}>
+      <path d="M12 3.5c3 3.6 6 7 6 10.5a6 6 0 0 1-12 0c0-3.5 3-6.9 6-10.5z" />
+    </Svg>
+  ),
   /** Médicament : une gélule. */
   Pill: (p: P) => (
     <Svg {...p}>
@@ -136,4 +142,5 @@ export const KIND_ICON: Record<EventKind, (p: P) => ReturnType<typeof Icon.Breas
   sleep: Icon.Moon,
   temp: Icon.Thermo,
   med: Icon.Pill,
+  pump: Icon.Drop,
 };

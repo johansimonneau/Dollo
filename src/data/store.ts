@@ -1,5 +1,5 @@
 import type { ReminderPrefs } from '../../supabase/functions/_shared/reminders';
-import type { Baby, BabyEvent, Invitation, InviteRole, Measurement, Member, NewEvent, NewMeasurement, Vaccination } from '../lib/types';
+import type { Baby, BabyEvent, Invitation, InviteRole, Measurement, Member, MilkBag, NewEvent, NewMeasurement, NewMilkBag, Vaccination } from '../lib/types';
 
 /** Abonnement Web Push d'un appareil (PushSubscription.toJSON()). */
 export interface PushSubscriptionData {
@@ -59,6 +59,11 @@ export interface Store {
   /** Note une dose comme faite (ou corrige sa date / sa note). */
   saveVaccination(babyId: string, code: string, givenOn: string, note: string | null): Promise<Vaccination>;
   deleteVaccination(id: string): Promise<void>;
+  /** Stock de lait tiré encore disponible (ni utilisé ni jeté). */
+  listMilkBags(babyId: string): Promise<MilkBag[]>;
+  addMilkBag(bag: NewMilkBag): Promise<MilkBag>;
+  /** Décongeler, utiliser, jeter, corriger le volume… */
+  updateMilkBag(id: string, patch: Partial<Pick<MilkBag, 'volumeMl' | 'storage' | 'storedAt' | 'usedAt' | 'discardedAt' | 'note'>>): Promise<MilkBag>;
   listEvents(babyId: string, sinceIso: string): Promise<BabyEvent[]>;
   /** `id` : identifiant choisi par l'appareil (saisie hors ligne rejouée plus tard sans doublon). */
   addEvent(event: NewEvent, id?: string): Promise<BabyEvent>;

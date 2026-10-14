@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { DIAPER_LABEL } from '../lib/labels';
 import { fmtDuration } from '../lib/time';
-import type { DiaperType } from '../lib/types';
+import type { DiaperType, PumpSide } from '../lib/types';
 import { Icon } from './icons';
 import { Sheet } from './Sheet';
 import { NOW, TimeChips, type When } from './TimeChips';
@@ -224,6 +224,106 @@ export function MedSheet({ recent, defaultName = '', now, onSave, onClose }: Med
         className="btn primary block"
         onClick={() => (name.trim() ? onSave(name.trim(), dose.trim() || null, when, note.trim() || null) : setError('Indiquez le nom du médicament.'))}
       >
+        Enregistrer
+      </button>
+    </Sheet>
+  );
+}
+
+const PUMP_PRESETS = [60, 90, 120, 150, 200];
+const PUMP_DURATIONS = [10, 15, 20, 30];
+export type MilkStorage = 'fridge' | 'freezer';
+
+interface PumpProps {
+  onSave: (side: PumpSide, minutes: number | null, ml: number, storage: MilkStorage | null, when: When, note: string | null) => void;
+  onClose: () => void;
+}
+
+/** Tirage : sein(s), durée (facultative), quantité, et mise en stock directe (frigo / congélateur). */
+export function PumpSheet({ onSave, onClose }: PumpProps) {
+  const [when, setWhen] = useState<When>(NOW);
+  const [side, setSide] = useState<PumpSide>('both');
+  const [minutes, setMinutes] = useState<number | null>(null);
+  const [ml, setMl] = useState(120);
+  const [storage, setStorage] = useState<MilkStorage | null>(null);
+  const [note, setNote] = useState('');
+  const clamp = (n: number) => Math.min(1000, Math.max(0, n));
+  return (
+    <Sheet title="Tirage" onClose={onClose}>
+      <TimeChips value={when} onChange={setWhen} />
+      <div className="field">
+        <span className="label" id="pump-side">
+          Sein
+        </span>
+        <div className="segmented" role="group" aria-labelledby="pump-side">
+          {(['left', 'right', 'both'] as const).map((s) => (
+            <button key={s} type="button" aria-pressed={side === s} onClick={() => setSide(s)}>
+              {s === 'left' ? 'Gauche' : s === 'right' ? 'Droit' : 'Les deux'}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="field">
+        <span className="label" id="pump-duration">
+          Durée
+        </span>
+        <div className="chips" role="group" aria-labelledby="pump-duration">
+          <button type="button" className="chip" aria-pressed={minutes === null} onClick={() => setMinutes(null)}>
+            Non notée
+          </button>
+          {PUMP_DURATIONS.map((m) => (
+            <button key={m} type="button" className="chip" aria-pressed={minutes === m} onClick={() => setMinutes(m)}>
+              {m}
+              {' '}min
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="field">
+        <span className="label">Quantité tirée</span>
+        <div className="stepper">
+          <button type="button" className="icon-btn big" aria-label="Moins 10 ml" onClick={() => setMl((v) => clamp(v - 10))}>
+            −
+          </button>
+          <output className="stepper-value" aria-live="polite">
+            {ml} <small>ml</small>
+          </output>
+          <button type="button" className="icon-btn big" aria-label="Plus 10 ml" onClick={() => setMl((v) => clamp(v + 10))}>
+            +
+          </button>
+        </div>
+        <div className="chips">
+          {PUMP_PRESETS.map((p) => (
+            <button key={p} type="button" className="chip" aria-pressed={ml === p} onClick={() => setMl(p)}>
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="field">
+        <span className="label" id="pump-storage">
+          Mettre en stock
+        </span>
+        <div className="segmented" role="group" aria-labelledby="pump-storage">
+          <button type="button" aria-pressed={storage === null} onClick={() => setStorage(null)}>
+            Non
+          </button>
+          <button type="button" aria-pressed={storage === 'fridge'} onClick={() => setStorage('fridge')}>
+            Frigo
+          </button>
+          <button type="button" aria-pressed={storage === 'freezer'} onClick={() => setStorage('freezer')}>
+            Congélateur
+          </button>
+        </div>
+        {storage && (
+          <span className="hint">{storage === 'fridge' ? 'À utiliser sous 48 h (au fond du réfrigérateur).' : 'À utiliser sous 4 mois (−18 °C).'}</span>
+        )}
+      </div>
+      <label className="field">
+        <span className="label">Note (facultatif)</span>
+        <input className="input" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
+      </label>
+      <button type="button" className="btn primary block" disabled={storage !== null && ml <= 0} onClick={() => onSave(side, minutes, ml, storage, when, note.trim() || null)}>
         Enregistrer
       </button>
     </Sheet>

@@ -38,7 +38,7 @@ Sur [supabase.com](https://supabase.com) → *New project*. Choisissez une **ré
 > Utilisez un projet vierge, pas une base qui sert déjà à autre chose : la migration crée les tables `babies`, `baby_members`, `events` et `baby_invitations` dans le schéma `public`.
 
 ### 2. Créer les tables
-*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`, `0005_nanny.sql`, `0006_reminders.sql`, `0007_growth.sql`, `0008_health.sql`.
+*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`, `0005_nanny.sql`, `0006_reminders.sql`, `0007_growth.sql`, `0008_health.sql`, `0009_milk.sql`.
 
 ### 3. Récupérer les deux clés publiques
 *Project Settings → API Keys* (ou *API*) :
@@ -125,6 +125,13 @@ Mesures et sexe sont réservés aux parents : la nounou n'y a pas accès (RLS, m
 - Le rapport pour le pédiatre reprend températures, médicaments et vaccins.
 
 Vaccins : parents uniquement (RLS, migration `0008_health.sql`).
+
+## Tire-lait et stock de lait
+
+- **Tirage** (bouton sur *Aujourd'hui*) : sein gauche, droit ou les deux, durée facultative, quantité. On peut le **mettre en stock** directement, au frigo ou au congélateur. Les tirages apparaissent dans le journal, l'export et le rapport pour le pédiatre (total et moyenne par jour).
+- **Stock** : une carte « Stock de lait » affiche les quantités au frigo et au congélateur. Le sachet le plus proche de sa date limite est proposé en premier. Actions : **Donner en biberon** (crée le biberon et sort le sachet du stock), **Décongeler**, **Jeter**.
+- **Dates limites** (`src/lib/milk.ts`) : 48 h au réfrigérateur, 4 mois au congélateur, 24 h une fois décongelé et sans recongeler. Ce sont les repères prudents les plus courants : les consignes de la maternité priment. Un bandeau prévient quand du lait au frigo arrive à moins de 12 h de sa limite, puis quand il est périmé.
+- Toute la famille partage le stock, nounou comprise, mais seuls les parents peuvent supprimer une ligne (migration `0009_milk.sql`).
 
 ## Hors ligne
 

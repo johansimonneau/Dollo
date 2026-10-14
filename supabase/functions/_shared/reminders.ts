@@ -19,7 +19,7 @@ export const DIAPER_CHOICES = [4, 6, 8] as const;
 
 export interface ReminderEvent {
   id: string;
-  kind: 'breast' | 'bottle' | 'diaper' | 'sleep' | 'temp' | 'med';
+  kind: 'breast' | 'bottle' | 'diaper' | 'sleep' | 'temp' | 'med' | 'pump';
   startedAt: string;
   endedAt: string | null;
   diaperType: 'pee' | 'poop' | 'both' | null;

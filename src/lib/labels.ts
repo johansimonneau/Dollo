@@ -1,4 +1,4 @@
-import type { BabyEvent, DiaperType, EventKind } from './types';
+import type { BabyEvent, BreastSide, DiaperType, EventKind, PumpSide } from './types';
 import type { Summary } from './summary';
 import { fmtClock, fmtDuration } from './time';
 
@@ -9,6 +9,7 @@ export const KIND_LABEL: Record<EventKind, string> = {
   sleep: 'Sommeil',
   temp: 'Température',
   med: 'Médicament',
+  pump: 'Tirage',
 };
 
 /** « 38,2 °C » */
@@ -50,16 +51,19 @@ export function summaryText(kind: EventKind, s: Summary): string {
       return s.tempCount > 0 && s.tempMax !== null ? `${plural(s.tempCount, 'prise')} · max ${fmtTemp(s.tempMax)}` : '0 prise';
     case 'med':
       return plural(s.medCount, 'médicament');
+    case 'pump':
+      return plural(s.pumpCount, 'tirage') + (s.pumpMl > 0 ? ` · ${fmtVolume(s.pumpMl)}` : '');
   }
 }
 
 export const SIDE_LABEL = { left: 'Sein gauche', right: 'Sein droit' } as const;
+export const PUMP_SIDE_LABEL: Record<PumpSide, string> = { left: 'Sein gauche', right: 'Sein droit', both: 'Les deux seins' };
 
 /** Titre court d'un événement : « Sein gauche », « Biberon · 90 ml », « Caca »… */
 export function eventTitle(e: BabyEvent): string {
   switch (e.kind) {
     case 'breast':
-      return e.side ? SIDE_LABEL[e.side] : 'Tétée';
+      return e.side && e.side !== 'both' ? SIDE_LABEL[e.side as BreastSide] : 'Tétée';
     case 'bottle':
       return e.amountMl ? `Biberon · ${e.amountMl} ml` : 'Biberon';
     case 'diaper':
@@ -70,6 +74,8 @@ export function eventTitle(e: BabyEvent): string {
       return e.tempC != null ? `Température · ${fmtTemp(e.tempC)}` : 'Température';
     case 'med':
       return [e.medName ?? 'Médicament', e.medDose].filter(Boolean).join(' · ');
+    case 'pump':
+      return ['Tirage', e.amountMl ? `${e.amountMl} ml` : null, e.side ? PUMP_SIDE_LABEL[e.side].toLowerCase() : null].filter(Boolean).join(' · ');
   }
 }
 
@@ -92,16 +98,16 @@ export function eventsToCsv(events: BabyEvent[]): string {
           ? fmtTemp(e.tempC).replace('\u00a0', ' ')
           : e.kind === 'med'
             ? [e.medName, e.medDose].filter(Boolean).join(' ')
-            : e.kind === 'breast'
+            : e.kind === 'breast' || e.kind === 'pump'
           ? e.side
-            ? SIDE_LABEL[e.side]
+            ? PUMP_SIDE_LABEL[e.side]
             : ''
           : e.kind === 'diaper'
             ? e.diaperType
               ? DIAPER_LABEL[e.diaperType]
               : ''
             : '';
-      return [date, fmtClock(e.startedAt), e.endedAt ? fmtClock(e.endedAt) : '', minutes, KIND_LABEL[e.kind], detail, e.kind === 'bottle' ? e.amountMl : null, e.note]
+      return [date, fmtClock(e.startedAt), e.endedAt ? fmtClock(e.endedAt) : '', minutes, KIND_LABEL[e.kind], detail, e.kind === 'bottle' || e.kind === 'pump' ? e.amountMl : null, e.note]
         .map(csvCell)
         .join(';');
     });

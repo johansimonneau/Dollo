@@ -6,13 +6,14 @@ import { dayKey, fmtDate } from './lib/time';
 import type { OfflineStore, SyncState } from './data/offlineStore';
 import { EventSheet, type EventData } from './components/EventSheet';
 import { Icon } from './components/icons';
-import { BottleSheet, DiaperSheet, MedSheet, TempSheet, type RecentMed } from './components/QuickSheets';
+import { BottleSheet, DiaperSheet, MedSheet, PumpSheet, TempSheet, type MilkStorage, type RecentMed } from './components/QuickSheets';
+import { MilkStock } from './components/MilkStock';
 import { useToast } from './components/toast';
 import { errorMessage, type Store } from './data/store';
 import { DIAPER_LABEL, fmtTemp, SIDE_LABEL } from './lib/labels';
 import { ongoing } from './lib/summary';
 import { babyAge, fmtDuration } from './lib/time';
-import { emptyEvent, type Baby, type BabyEvent, type BreastSide, type DiaperType } from './lib/types';
+import { emptyEvent, type Baby, type BabyEvent, type BreastSide, type DiaperType, type MilkBag, type PumpSide } from './lib/types';
 import { useEvents } from './lib/useEvents';
 import { useNow } from './lib/useNow';
 import { resolveWhen, type When } from './components/TimeChips';
@@ -22,7 +23,7 @@ import { StatsTabs } from './screens/StatsTabs';
 import { Today } from './screens/Today';
 
 type Tab = 'today' | 'journal' | 'stats' | 'settings';
-type SheetState = { type: 'diaper' } | { type: 'bottle' } | { type: 'temp' } | { type: 'med' } | { type: 'event'; event?: BabyEvent } | null;
+type SheetState = { type: 'diaper' } | { type: 'bottle' } | { type: 'temp' } | { type: 'med' } | { type: 'pump' } | { type: 'milk' } | { type: 'event'; event?: BabyEvent } | null;
 
 const TABS: { id: Tab; label: string; icon: (p: { size?: number }) => JSX.Element }[] = [
   { id: 'today', label: "Aujourd'hui", icon: Icon.Home },
@@ -99,6 +100,21 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
     if (store.mode === 'cloud') void syncPush(store).catch(() => undefined);
   }, [store, userId]);
 
+  // Stock de lait tiré (tous les membres : la nounou donne souvent le lait du stock).
+  const [milkBags, setMilkBags] = useState<MilkBag[]>([]);
+  const [milkVersion, setMilkVersion] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    store
+      .listMilkBags(baby.id)
+      .then((b) => alive && setMilkBags(b))
+      .catch(() => alive && setMilkBags([])); // base pas encore migrée : pas de stock
+    return () => {
+      alive = false;
+    };
+  }, [store, baby.id, milkVersion]);
+  const reloadMilk = () => setMilkVersion((v) => v + 1);
+
   // Vaccins (parents) : bandeau « vaccins des 2 mois à faire » sur Aujourd'hui.
   const [vaxCodes, setVaxCodes] = useState<Set<string> | null>(null);
   const [vaxVersion, setVaxVersion] = useState(0);
@@ -161,7 +177,7 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
       if (current) await update(current.id, { endedAt: t });
       const created = await add({ ...emptyEvent(baby.id, 'breast', t), side });
       toast.show(
-        current?.side ? `${SIDE_LABEL[current.side]} terminé · ${SIDE_LABEL[side]} démarré` : `${SIDE_LABEL[side]} · démarré`,
+        current?.side && current.side !== 'both' ? `${SIDE_LABEL[current.side]} terminé · ${SIDE_LABEL[side]} démarré` : `${SIDE_LABEL[side]} · démarré`,
         {
           actionLabel: 'Annuler',
           onAction: () =>
@@ -246,6 +262,40 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
       closeSheet();
       toast.show(`Médicament enregistré · ${medName}`, { actionLabel: 'Annuler', onAction: () => guard(() => remove(created.id)) });
     });
+
+  const savePump = (side: PumpSide, minutes: number | null, ml: number, storage: MilkStorage | null, when: When, note: string | null) =>
+    guard(async () => {
+      const startedAt = whenOrToast(when);
+      if (!startedAt) return;
+      const endedAt = minutes ? new Date(new Date(startedAt).getTime() + minutes * 60_000).toISOString() : null;
+      const created = await add({ ...emptyEvent(baby.id, 'pump', startedAt), side, endedAt, amountMl: ml > 0 ? ml : null, note });
+      if (storage && ml > 0) {
+        await store.addMilkBag({ babyId: baby.id, pumpedAt: startedAt, volumeMl: ml, storage, storedAt: startedAt, note: null });
+        reloadMilk();
+      }
+      closeSheet();
+      toast.show(`Tirage enregistré · ${ml} ml${storage ? (storage === 'fridge' ? ' · au frigo' : ' · au congélateur') : ''}`, {
+        actionLabel: storage ? undefined : 'Annuler',
+        onAction: storage ? undefined : () => guard(() => remove(created.id)),
+      });
+    });
+
+  const giveMilk = async (bag: MilkBag) => {
+    await add({ ...emptyEvent(baby.id, 'bottle', new Date().toISOString()), amountMl: bag.volumeMl, note: 'Lait maternel du stock' });
+    await store.updateMilkBag(bag.id, { usedAt: new Date().toISOString() });
+    reloadMilk();
+    toast.show(`Biberon de ${bag.volumeMl} ml enregistré (lait du stock). Corrigez la quantité bue si besoin.`);
+  };
+  const thawMilk = async (bag: MilkBag) => {
+    await store.updateMilkBag(bag.id, { storage: 'thawed', storedAt: new Date().toISOString() });
+    reloadMilk();
+    toast.show('Décongelé : à utiliser sous 24 h (au réfrigérateur, sans recongeler).');
+  };
+  const discardMilk = async (bag: MilkBag) => {
+    await store.updateMilkBag(bag.id, { discardedAt: new Date().toISOString() });
+    reloadMilk();
+    toast.show(`${bag.volumeMl} ml retirés du stock.`);
+  };
 
   // Derniers médicaments notés (pour les raccourcis et l'avertissement « dernière prise »).
   const recentMeds: RecentMed[] = events
@@ -332,6 +382,7 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
             reminderPrefs={reminderPrefs}
             birthDate={baby.birthDate}
             vaccinesDue={vaccinesDue()}
+            milkBags={milkBags}
             actions={{
               startBreast: (s) => void startBreast(s),
               stop: (e) => void stop(e),
@@ -340,6 +391,8 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
               openBottle: () => setSheet({ type: 'bottle' }),
               openTemp: () => setSheet({ type: 'temp' }),
               openMed: () => setSheet({ type: 'med' }),
+              openPump: () => setSheet({ type: 'pump' }),
+              openMilk: () => setSheet({ type: 'milk' }),
               edit,
             }}
           />
@@ -385,6 +438,10 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
 
       {sheet?.type === 'diaper' && <DiaperSheet onSave={(t, w, n) => void saveDiaper(t, w, n)} onClose={closeSheet} />}
       {sheet?.type === 'bottle' && <BottleSheet defaultMl={readLastMl()} onSave={(ml, w, n) => void saveBottle(ml, w, n)} onClose={closeSheet} />}
+      {sheet?.type === 'pump' && <PumpSheet onSave={(...a) => void savePump(...a)} onClose={closeSheet} />}
+      {sheet?.type === 'milk' && (
+        <MilkStock bags={milkBags} now={now} onGive={giveMilk} onThaw={thawMilk} onDiscard={discardMilk} onClose={closeSheet} />
+      )}
       {sheet?.type === 'temp' && <TempSheet onSave={(t, w, n) => void saveTemp(t, w, n)} onClose={closeSheet} />}
       {sheet?.type === 'med' && (
         <MedSheet

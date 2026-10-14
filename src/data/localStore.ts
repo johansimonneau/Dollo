@@ -1,5 +1,5 @@
 import { DEFAULT_PREFS, type ReminderPrefs } from '../../supabase/functions/_shared/reminders';
-import type { Baby, BabyEvent, Measurement, NewEvent, Vaccination } from '../lib/types';
+import type { Baby, BabyEvent, Measurement, MilkBag, NewEvent, Vaccination } from '../lib/types';
 import { StoreError, type BabyInput, type Store } from './store';
 
 const KEY = 'dollo:v1';
@@ -11,6 +11,7 @@ interface Data {
   events: BabyEvent[];
   measurements: Measurement[];
   vaccinations: Vaccination[];
+  milkBags: MilkBag[];
 }
 
 function read(): Data {
@@ -18,12 +19,12 @@ function read(): Data {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<Data>;
-      return { babies: parsed.babies ?? [], events: parsed.events ?? [], measurements: parsed.measurements ?? [], vaccinations: parsed.vaccinations ?? [] };
+      return { babies: parsed.babies ?? [], events: parsed.events ?? [], measurements: parsed.measurements ?? [], vaccinations: parsed.vaccinations ?? [], milkBags: parsed.milkBags ?? [] };
     }
   } catch {
     /* stockage indisponible ou corrompu : on repart d'une base vide */
   }
-  return { babies: [], events: [], measurements: [], vaccinations: [] };
+  return { babies: [], events: [], measurements: [], vaccinations: [], milkBags: [] };
 }
 
 function write(data: Data) {
@@ -131,6 +132,26 @@ export function createLocalStore(): Store {
     async deleteVaccination(id) {
       const data = read();
       write({ ...data, vaccinations: data.vaccinations.filter((v) => v.id !== id) });
+    },
+
+    async listMilkBags(babyId) {
+      return read().milkBags.filter((b) => b.babyId === babyId && !b.usedAt && !b.discardedAt);
+    },
+
+    async addMilkBag(bag) {
+      const data = read();
+      const created: MilkBag = { ...bag, id: crypto.randomUUID(), usedAt: null, discardedAt: null };
+      write({ ...data, milkBags: [...data.milkBags, created] });
+      return created;
+    },
+
+    async updateMilkBag(id, patch) {
+      const data = read();
+      const cur = data.milkBags.find((b) => b.id === id);
+      if (!cur) throw new StoreError('Sachet introuvable.');
+      const updated = { ...cur, ...patch };
+      write({ ...data, milkBags: data.milkBags.map((b) => (b.id === id ? updated : b)) });
+      return updated;
     },
 
     async getReminderPrefs(babyId) {

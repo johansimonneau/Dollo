@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Baby, BabyEvent, BreastSide, DiaperType, EventKind, Invitation, InviteRole, Measurement, Member, NewEvent, NewMeasurement, Role } from '../lib/types';
+import type { Baby, BabyEvent, DiaperType, EventKind, Invitation, InviteRole, Measurement, Member, MilkBag, NewEvent, NewMeasurement, PumpSide, Role } from '../lib/types';
 import { DEFAULT_PREFS } from '../../supabase/functions/_shared/reminders';
 import { isNetworkFailure, NetworkError, StoreError, type BabyInput, type Store } from './store';
 
@@ -23,6 +23,30 @@ interface MeasurementRow {
   head_mm: number | null;
   note: string | null;
 }
+
+interface MilkRow {
+  id: string;
+  baby_id: string;
+  pumped_at: string;
+  volume_ml: number;
+  storage: MilkBag['storage'];
+  stored_at: string;
+  used_at: string | null;
+  discarded_at: string | null;
+  note: string | null;
+}
+
+const toMilkBag = (r: MilkRow): MilkBag => ({
+  id: r.id,
+  babyId: r.baby_id,
+  pumpedAt: r.pumped_at,
+  volumeMl: r.volume_ml,
+  storage: r.storage,
+  storedAt: r.stored_at,
+  usedAt: r.used_at,
+  discardedAt: r.discarded_at,
+  note: r.note,
+});
 
 const toMeasurement = (r: MeasurementRow): Measurement => ({
   id: r.id,
@@ -61,7 +85,7 @@ interface EventRow {
   kind: EventKind;
   started_at: string;
   ended_at: string | null;
-  side: BreastSide | null;
+  side: PumpSide | null;
   amount_ml: number | null;
   diaper_type: DiaperType | null;
   note: string | null;
@@ -350,6 +374,40 @@ export function createSupabaseStore(client: SupabaseClient): Store {
     async deleteVaccination(id) {
       const { error } = await client.from('vaccinations').delete().eq('id', id);
       if (error) fail(error, 'Suppression du vaccin impossible.');
+    },
+
+    async listMilkBags(babyId) {
+      const { data, error } = await client
+        .from('milk_bags')
+        .select('*')
+        .eq('baby_id', babyId)
+        .is('used_at', null)
+        .is('discarded_at', null);
+      if (error) fail(error, 'Chargement du stock de lait impossible.');
+      return (data as MilkRow[]).map(toMilkBag);
+    },
+
+    async addMilkBag(bag) {
+      const { data, error } = await client
+        .from('milk_bags')
+        .insert({ baby_id: bag.babyId, pumped_at: bag.pumpedAt, volume_ml: bag.volumeMl, storage: bag.storage, stored_at: bag.storedAt, note: bag.note })
+        .select()
+        .single();
+      if (error) fail(error, 'Ajout au stock impossible.');
+      return toMilkBag(data as MilkRow);
+    },
+
+    async updateMilkBag(id, patch) {
+      const row: Record<string, unknown> = {};
+      if ('volumeMl' in patch) row.volume_ml = patch.volumeMl;
+      if ('storage' in patch) row.storage = patch.storage;
+      if ('storedAt' in patch) row.stored_at = patch.storedAt;
+      if ('usedAt' in patch) row.used_at = patch.usedAt;
+      if ('discardedAt' in patch) row.discarded_at = patch.discardedAt;
+      if ('note' in patch) row.note = patch.note;
+      const { data, error } = await client.from('milk_bags').update(row).eq('id', id).select().single();
+      if (error) fail(error, 'Mise à jour du stock impossible.');
+      return toMilkBag(data as MilkRow);
     },
 
     async listEvents(babyId, sinceIso) {

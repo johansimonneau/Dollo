@@ -1,5 +1,7 @@
-export type EventKind = 'breast' | 'bottle' | 'diaper' | 'sleep' | 'temp' | 'med';
+export type EventKind = 'breast' | 'bottle' | 'diaper' | 'sleep' | 'temp' | 'med' | 'pump';
 export type BreastSide = 'left' | 'right';
+/** Tire-lait : un sein ou les deux (double pompe). */
+export type PumpSide = BreastSide | 'both';
 export type DiaperType = 'pee' | 'poop' | 'both';
 
 /** Rôle sur un bébé : « owner » a créé le suivi ; la nounou n'a qu'un accès restreint (voir migration 0005). */
@@ -72,7 +74,8 @@ export interface BabyEvent {
   startedAt: string;
   /** ISO 8601, ou null tant que la tétée / le sommeil est en cours. */
   endedAt: string | null;
-  side: BreastSide | null;
+  /** Tétée : gauche / droit. Tirage : gauche / droit / les deux. */
+  side: PumpSide | null;
   /** Biberon : quantité réellement BUE par bébé (pas la quantité préparée). */
   amountMl: number | null;
   diaperType: DiaperType | null;
@@ -98,3 +101,18 @@ export const emptyEvent = (babyId: string, kind: EventKind, startedAt: string): 
   diaperType: null,
   note: null,
 });
+
+/** Lait maternel tiré en stock (sachet, biberon, pot). */
+export interface MilkBag {
+  id: string;
+  babyId: string;
+  pumpedAt: string;
+  volumeMl: number;
+  storage: 'fridge' | 'freezer' | 'thawed';
+  /** Entrée dans le stockage actuel : point de départ de la date limite. */
+  storedAt: string;
+  usedAt: string | null;
+  discardedAt: string | null;
+  note: string | null;
+}
+export type NewMilkBag = Omit<MilkBag, 'id' | 'usedAt' | 'discardedAt'>;

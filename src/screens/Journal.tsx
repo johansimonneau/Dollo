@@ -7,9 +7,9 @@ import { dayBounds, dayKey, fmtDayLabel, shiftDay } from '../lib/time';
 import type { BabyEvent, EventKind } from '../lib/types';
 import { HISTORY_DAYS } from '../lib/useEvents';
 
-const KINDS: EventKind[] = ['breast', 'bottle', 'diaper', 'sleep', 'temp', 'med'];
+const KINDS: EventKind[] = ['breast', 'bottle', 'diaper', 'sleep', 'pump', 'temp', 'med'];
 /** Santé : filtre affiché seulement s'il y a quelque chose (un bébé en bonne santé n'a pas besoin de « 0 médicament »). */
-const HEALTH: EventKind[] = ['temp', 'med'];
+const HEALTH: EventKind[] = ['temp', 'med', 'pump'];
 
 interface Props {
   events: BabyEvent[];
