@@ -63,7 +63,7 @@ export function Members({ store, baby, myEmail, onBabyChanged }: Props) {
             <span className="invitation-main">
               <span className="invitation-email">{m.email}</span>
               <span className="invitation-status">
-                {m.role === 'owner' ? 'Créateur du suivi' : 'Parent'}
+                {m.role === 'owner' ? 'Créateur du suivi' : m.role === 'nanny' ? 'Nounou · dernières 48 h' : 'Parent'}
                 {isMe ? ' · vous' : ''}
               </span>
             </span>

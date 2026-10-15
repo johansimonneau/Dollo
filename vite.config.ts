@@ -3,6 +3,9 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// Clé publique des notifications de rappel (paire générée le 15/10/2026 ; la privée est dans Supabase → Edge Functions → Secrets).
+const DOLLO_VAPID_PUBLIC_KEY = 'BFQSFsc4etJQJ2zMb1hTzHXFk5Y2flpVZNJTbxk3oSROGGUT8O5U6Yy5fhogWgLbQL9WcFl3zwlRPaCTiPJ8NxQ';
+
 /**
  * Garde-fou : la valeur injectée dans le bundle est lisible par tous les visiteurs. Si on y colle par erreur la clé
  * SECRÈTE (`sb_secret_…` ou l'ancienne `service_role`, qui contourne toute la sécurité de la base), le build s'arrête.
@@ -61,7 +64,9 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       VitePWA({
-        registerType: 'autoUpdate',
+        // « prompt » : la nouvelle version attend que l'app décide du bon moment (lib/updates.ts), au lieu de
+        // recharger la page en pleine saisie.
+        registerType: 'prompt',
         includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
         manifest: {
           name: 'Dollo – suivi bébé',
@@ -79,13 +84,24 @@ export default defineConfig(({ mode }) => {
             { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
             { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
           ],
+          // Appui long sur l'icône (Android, ordinateur) : actions directes. Voir lib/commands.ts et Shell (liens d'action).
+          shortcuts: [
+            { name: 'Biberon', short_name: 'Biberon', url: '/?app&open=bottle', icons: [{ src: 'icon-192.png', sizes: '192x192' }] },
+            { name: 'Couche', short_name: 'Couche', url: '/?app&open=diaper', icons: [{ src: 'icon-192.png', sizes: '192x192' }] },
+            { name: 'Tétée (sein suggéré)', short_name: 'Tétée', url: '/?app&do=t%C3%A9t%C3%A9e', icons: [{ src: 'icon-192.png', sizes: '192x192' }] },
+            { name: 'Dodo / réveil', short_name: 'Dodo', url: '/?app&do=sommeil', icons: [{ src: 'icon-192.png', sizes: '192x192' }] },
+          ],
         },
-        workbox: { navigateFallback: '/index.html' },
+        // push-sw.js : affichage des notifications de rappel et ouverture de l'app au toucher.
+        workbox: { navigateFallback: '/index.html', importScripts: ['push-sw.js'] },
       }),
     ],
     define: {
       __SUPABASE_URL__: JSON.stringify(normalizeSupabaseUrl(pick('VITE_SUPABASE_URL', 'SUPABASE_URL'))),
       __SUPABASE_ANON_KEY__: JSON.stringify(publicKey),
+      // Publique par conception (la clé PRIVÉE n'existe que dans les secrets de la fonction send-reminders).
+      // Écrite ici pour ne dépendre d'aucun réglage Vercel ; une variable d'environnement la remplace si besoin.
+      __VAPID_PUBLIC_KEY__: JSON.stringify((pick('VITE_VAPID_PUBLIC_KEY', 'VAPID_PUBLIC_KEY') || DOLLO_VAPID_PUBLIC_KEY).trim()),
     },
     test: { environment: 'node', include: ['src/**/*.test.ts'], setupFiles: ['src/test-setup.ts'] },
   };

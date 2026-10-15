@@ -17,10 +17,11 @@ const readSelected = () => {
 interface Props {
   store: Store;
   email: string | null;
+  userId: string | null;
   onSignOut: (() => void) | null;
 }
 
-export function BabyGate({ store, email, onSignOut }: Props) {
+export function BabyGate({ store, email, userId, onSignOut }: Props) {
   const [babies, setBabies] = useState<Baby[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(readSelected);
@@ -93,6 +94,7 @@ export function BabyGate({ store, email, onSignOut }: Props) {
       babies={babies}
       baby={baby}
       email={email}
+      userId={userId}
       onSelectBaby={select}
       onBabyUpdated={(b) => setBabies((prev) => (prev ?? []).map((x) => (x.id === b.id ? b : x)))}
       onAddBaby={() => setAdding(true)}

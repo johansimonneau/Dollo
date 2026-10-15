@@ -1,5 +1,9 @@
 import { useState, type FormEvent } from 'react';
+import type { ReminderPrefs } from '../../supabase/functions/_shared/reminders';
 import { InviteByEmail } from '../components/InviteByEmail';
+import { PediatricianReport } from '../components/PediatricianReport';
+import { RemindersSettings } from '../components/RemindersSettings';
+import { HandsFree } from '../components/HandsFree';
 import { Members } from '../components/Members';
 import { useToast } from '../components/toast';
 import { errorMessage, type Store } from '../data/store';
@@ -8,6 +12,10 @@ import { babyAge, dayKey } from '../lib/time';
 import type { Baby, BabyEvent } from '../lib/types';
 
 interface Props {
+  /** Accès nounou : ni profil, ni partage, ni export. */
+  nanny?: boolean;
+  reminderPrefs: ReminderPrefs;
+  onReminderPrefsChange: (prefs: ReminderPrefs) => void;
   store: Store;
   baby: Baby;
   events: BabyEvent[];
@@ -21,7 +29,7 @@ interface Props {
 /** AB12CD34EF → AB12C-D34EF, plus lisible à dicter. */
 const prettyCode = (code: string) => (code.length === 10 ? `${code.slice(0, 5)}-${code.slice(5)}` : code);
 
-export function Settings({ store, baby, events, email, now, onBabyUpdated, onAddBaby, onSignOut }: Props) {
+export function Settings({ nanny = false, reminderPrefs, onReminderPrefsChange, store, baby, events, email, now, onBabyUpdated, onAddBaby, onSignOut }: Props) {
   const toast = useToast();
   const [name, setName] = useState(baby.name);
   const [birthDate, setBirthDate] = useState(baby.birthDate ?? '');
@@ -37,14 +45,17 @@ export function Settings({ store, baby, events, email, now, onBabyUpdated, onAdd
     }
   };
 
-  const dirty = name.trim() !== baby.name || (birthDate || null) !== baby.birthDate;
+  const [sex, setSex] = useState<'f' | 'm' | null>(baby.sex ?? null);
+  const [report, setReport] = useState(false);
+  const sexChanged = sex !== (baby.sex ?? null);
+  const dirty = name.trim() !== baby.name || (birthDate || null) !== baby.birthDate || sexChanged;
 
   const save = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return toast.show('Le prénom ne peut pas être vide.', { tone: 'error' });
     setBusy(true);
     try {
-      onBabyUpdated(await store.updateBaby(baby.id, { name: name.trim(), birthDate: birthDate || null }));
+      onBabyUpdated(await store.updateBaby(baby.id, { name: name.trim(), birthDate: birthDate || null, ...(sexChanged ? { sex } : {}) }));
       toast.show('Profil mis à jour.');
     } catch (err) {
       toast.show(errorMessage(err), { tone: 'error' });
@@ -95,6 +106,47 @@ export function Settings({ store, baby, events, email, now, onBabyUpdated, onAdd
 
   const age = babyAge(baby.birthDate, now);
 
+  // Rappels, installation et compte : communs aux parents et à la nounou.
+  const common = (
+    <>
+      <RemindersSettings store={store} baby={baby} prefs={reminderPrefs} onPrefsChange={onReminderPrefsChange} />
+      <HandsFree />
+      <section className="card pad" aria-label="Installer l'application">
+        <h2 className="section-title flush">Installer sur l'écran d'accueil</h2>
+        <p className="hint">
+          <strong>iPhone</strong> : Safari → bouton Partager → « Sur l'écran d'accueil ». <strong>Android</strong> : menu ⋮ de Chrome →
+          « Installer l'application ». Dollo s'ouvre alors en plein écran, comme une vraie app.
+        </p>
+      </section>
+
+      {onSignOut && (
+        <section className="card pad" aria-label="Compte">
+          <h2 className="section-title flush">Compte</h2>
+          {email && <p className="hint">Connecté en tant que {email}</p>}
+          <button type="button" className="btn ghost danger" onClick={onSignOut}>
+            Se déconnecter
+          </button>
+        </section>
+      )}
+    </>
+  );
+
+  if (nanny) {
+    return (
+      <div className="screen">
+        <section className="card pad" aria-label="Accès nounou">
+          <h2 className="section-title flush">Accès nounou</h2>
+          <p className="hint">
+            Vous suivez <strong>{baby.name}</strong> en tant que nounou : vous voyez et notez les dernières 48 h (tétées, biberons, couches,
+            dodos). Les parents voient tout ce que vous enregistrez ; vous ne voyez pas leurs informations personnelles.
+          </p>
+        </section>
+        {common}
+      </div>
+    );
+  }
+
+
   return (
     <div className="screen">
       <section className="card pad" aria-label="Profil de bébé">
@@ -108,6 +160,19 @@ export function Settings({ store, baby, events, email, now, onBabyUpdated, onAdd
             <span className="label">Date de naissance</span>
             <input className="input" type="date" value={birthDate} max={dayKey(now)} onChange={(e) => setBirthDate(e.target.value)} />
           </label>
+          <div className="field">
+            <span className="label" id="sex-label">
+              Sexe <small>(courbes de croissance)</small>
+            </span>
+            <div className="segmented" role="group" aria-labelledby="sex-label">
+              <button type="button" aria-pressed={sex === 'f'} onClick={() => setSex('f')}>
+                Fille
+              </button>
+              <button type="button" aria-pressed={sex === 'm'} onClick={() => setSex('m')}>
+                Garçon
+              </button>
+            </div>
+          </div>
           <button type="submit" className="btn primary" disabled={!dirty || busy}>
             Enregistrer
           </button>
@@ -118,7 +183,7 @@ export function Settings({ store, baby, events, email, now, onBabyUpdated, onAdd
       </section>
 
       <section className="card pad" aria-label="Partage entre parents">
-        <h2 className="section-title flush">Partager avec l'autre parent</h2>
+        <h2 className="section-title flush">Partager le suivi</h2>
         {store.mode === 'cloud' ? (
           <>
             <Members store={store} baby={baby} myEmail={email} onBabyChanged={() => void refreshBaby()} />
@@ -152,29 +217,18 @@ export function Settings({ store, baby, events, email, now, onBabyUpdated, onAdd
 
       <section className="card pad" aria-label="Données">
         <h2 className="section-title flush">Données</h2>
-        <p className="hint">Exportez le journal (45 derniers jours) pour le montrer au pédiatre ou l'ouvrir dans Excel.</p>
+        <p className="hint">Pour la consultation : un rapport d'une page (7 derniers jours, mesures, courbes), à imprimer ou enregistrer en PDF.</p>
+        <button type="button" className="btn primary" onClick={() => setReport(true)}>
+          Rapport pour le pédiatre
+        </button>
+        <p className="hint">Ou tout le journal (45 derniers jours) en tableau, pour Excel.</p>
         <button type="button" className="btn" onClick={exportCsv} disabled={events.length === 0}>
           Exporter en CSV
         </button>
+        {report && <PediatricianReport store={store} baby={baby} events={events} now={now} onClose={() => setReport(false)} />}
       </section>
 
-      <section className="card pad" aria-label="Installer l'application">
-        <h2 className="section-title flush">Installer sur l'écran d'accueil</h2>
-        <p className="hint">
-          <strong>iPhone</strong> : Safari → bouton Partager → « Sur l'écran d'accueil ». <strong>Android</strong> : menu ⋮ de Chrome →
-          « Installer l'application ». Dollo s'ouvre alors en plein écran, comme une vraie app.
-        </p>
-      </section>
-
-      {onSignOut && (
-        <section className="card pad" aria-label="Compte">
-          <h2 className="section-title flush">Compte</h2>
-          {email && <p className="hint">Connecté en tant que {email}</p>}
-          <button type="button" className="btn ghost danger" onClick={onSignOut}>
-            Se déconnecter
-          </button>
-        </section>
-      )}
+      {common}
     </div>
   );
 }

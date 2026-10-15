@@ -99,3 +99,9 @@ export function babyAge(birthDate: string | null, nowMs: number): string | null 
   if (months < 24) return `${months} mois`;
   return `${Math.floor(months / 12)} ans`;
 }
+
+/** « 14 oct. 2026 » (date au format YYYY-MM-DD). */
+export function fmtDate(key: string): string {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(y, m - 1, d));
+}

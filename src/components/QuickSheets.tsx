@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { DIAPER_LABEL } from '../lib/labels';
-import type { DiaperType } from '../lib/types';
+import { fmtDuration } from '../lib/time';
+import type { DiaperType, PumpSide } from '../lib/types';
 import { Icon } from './icons';
 import { Sheet } from './Sheet';
 import { NOW, TimeChips, type When } from './TimeChips';
@@ -93,6 +94,236 @@ export function BottleSheet({ defaultMl, onSave, onClose }: BottleProps) {
         />
       </label>
       <button type="button" className="btn primary block" onClick={() => onSave(ml, when, note.trim() || null)}>
+        Enregistrer
+      </button>
+    </Sheet>
+  );
+}
+
+const TEMP_PRESETS = [36.5, 37, 37.5, 38, 38.5, 39, 39.5];
+const fmtT = (t: number) => t.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+interface TempProps {
+  onSave: (tempC: number, when: When, note: string | null) => void;
+  onClose: () => void;
+}
+
+/** Température : un préréglage ou ± 0,1 °C, puis « Enregistrer ». */
+export function TempSheet({ onSave, onClose }: TempProps) {
+  const [when, setWhen] = useState<When>(NOW);
+  const [t, setT] = useState(37);
+  const [note, setNote] = useState('');
+  const clamp = (n: number) => Math.round(Math.min(43, Math.max(34, n)) * 10) / 10;
+  return (
+    <Sheet title="Température" onClose={onClose}>
+      <TimeChips value={when} onChange={setWhen} />
+      <div className="field">
+        <span className="label">Température</span>
+        <div className="stepper">
+          <button type="button" className="icon-btn big" aria-label="Moins 0,1 degré" onClick={() => setT((v) => clamp(v - 0.1))}>
+            −
+          </button>
+          <output className={`stepper-value${t >= 38 ? ' fever' : ''}`} aria-live="polite">
+            {fmtT(t)} <small>°C</small>
+          </output>
+          <button type="button" className="icon-btn big" aria-label="Plus 0,1 degré" onClick={() => setT((v) => clamp(v + 0.1))}>
+            +
+          </button>
+        </div>
+        <div className="chips">
+          {TEMP_PRESETS.map((p) => (
+            <button key={p} type="button" className="chip" aria-pressed={t === p} onClick={() => setT(p)}>
+              {fmtT(p)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <label className="field">
+        <span className="label">Note (facultatif)</span>
+        <input className="input" value={note} maxLength={500} placeholder="Rectale, après le bain…" onChange={(e) => setNote(e.target.value)} />
+      </label>
+      <button type="button" className="btn primary block" onClick={() => onSave(t, when, note.trim() || null)}>
+        Enregistrer
+      </button>
+    </Sheet>
+  );
+}
+
+export interface RecentMed {
+  name: string;
+  dose: string | null;
+  at: string;
+}
+
+interface MedProps {
+  /** Médicaments déjà notés (du plus récent au plus ancien) : raccourcis et « dernière prise ». */
+  recent: RecentMed[];
+  defaultName?: string;
+  now: number;
+  onSave: (name: string, dose: string | null, when: When, note: string | null) => void;
+  onClose: () => void;
+}
+
+const sameMed = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/** Médicament : nom (raccourcis des derniers utilisés), dose libre. Affiche la dernière prise pour éviter un doublon. */
+export function MedSheet({ recent, defaultName = '', now, onSave, onClose }: MedProps) {
+  const [when, setWhen] = useState<When>(NOW);
+  const [name, setName] = useState(defaultName);
+  const [dose, setDose] = useState(() => recent.find((r) => sameMed(r.name, defaultName))?.dose ?? '');
+  const [note, setNote] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const shortcuts: string[] = [];
+  for (const r of recent) if (!shortcuts.some((s) => sameMed(s, r.name))) shortcuts.push(r.name);
+  for (const d of ['Vitamine D', 'Paracétamol']) if (!shortcuts.some((s) => sameMed(s, d))) shortcuts.push(d);
+  const last = name.trim() ? recent.find((r) => sameMed(r.name, name)) : undefined;
+  const lastAgoMs = last ? now - new Date(last.at).getTime() : null;
+
+  const pick = (n: string) => {
+    setName(n);
+    setDose(recent.find((r) => sameMed(r.name, n))?.dose ?? '');
+    setError(null);
+  };
+
+  return (
+    <Sheet title="Médicament" onClose={onClose}>
+      <TimeChips value={when} onChange={setWhen} />
+      <div className="field">
+        <span className="label">Médicament</span>
+        <div className="chips">
+          {shortcuts.slice(0, 6).map((n) => (
+            <button key={n} type="button" className="chip" aria-pressed={sameMed(n, name)} onClick={() => pick(n)}>
+              {n}
+            </button>
+          ))}
+        </div>
+        <input className="input" aria-label="Nom du médicament" value={name} maxLength={60} placeholder="Autre médicament" onChange={(e) => setName(e.target.value)} />
+      </div>
+      {last && lastAgoMs !== null && lastAgoMs < 24 * 3_600_000 && (
+        <p className="med-last" role="status">
+          Dernière prise de {last.name} il y a {fmtDuration(Math.max(0, lastAgoMs))}
+          {last.dose ? ` (${last.dose})` : ''}. Vérifiez avant de redonner.
+        </p>
+      )}
+      <label className="field">
+        <span className="label">Dose (facultatif)</span>
+        <input className="input" value={dose} maxLength={40} placeholder="2,4 ml, 1 goutte…" onChange={(e) => setDose(e.target.value)} />
+      </label>
+      <label className="field">
+        <span className="label">Note (facultatif)</span>
+        <input className="input" value={note} maxLength={500} placeholder="Prescrit par…, pour…" onChange={(e) => setNote(e.target.value)} />
+      </label>
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+      <button
+        type="button"
+        className="btn primary block"
+        onClick={() => (name.trim() ? onSave(name.trim(), dose.trim() || null, when, note.trim() || null) : setError('Indiquez le nom du médicament.'))}
+      >
+        Enregistrer
+      </button>
+    </Sheet>
+  );
+}
+
+const PUMP_PRESETS = [60, 90, 120, 150, 200];
+const PUMP_DURATIONS = [10, 15, 20, 30];
+export type MilkStorage = 'fridge' | 'freezer';
+
+interface PumpProps {
+  onSave: (side: PumpSide, minutes: number | null, ml: number, storage: MilkStorage | null, when: When, note: string | null) => void;
+  onClose: () => void;
+}
+
+/** Tirage : sein(s), durée (facultative), quantité, et mise en stock directe (frigo / congélateur). */
+export function PumpSheet({ onSave, onClose }: PumpProps) {
+  const [when, setWhen] = useState<When>(NOW);
+  const [side, setSide] = useState<PumpSide>('both');
+  const [minutes, setMinutes] = useState<number | null>(null);
+  const [ml, setMl] = useState(120);
+  const [storage, setStorage] = useState<MilkStorage | null>(null);
+  const [note, setNote] = useState('');
+  const clamp = (n: number) => Math.min(1000, Math.max(0, n));
+  return (
+    <Sheet title="Tirage" onClose={onClose}>
+      <TimeChips value={when} onChange={setWhen} />
+      <div className="field">
+        <span className="label" id="pump-side">
+          Sein
+        </span>
+        <div className="segmented" role="group" aria-labelledby="pump-side">
+          {(['left', 'right', 'both'] as const).map((s) => (
+            <button key={s} type="button" aria-pressed={side === s} onClick={() => setSide(s)}>
+              {s === 'left' ? 'Gauche' : s === 'right' ? 'Droit' : 'Les deux'}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="field">
+        <span className="label" id="pump-duration">
+          Durée
+        </span>
+        <div className="chips" role="group" aria-labelledby="pump-duration">
+          <button type="button" className="chip" aria-pressed={minutes === null} onClick={() => setMinutes(null)}>
+            Non notée
+          </button>
+          {PUMP_DURATIONS.map((m) => (
+            <button key={m} type="button" className="chip" aria-pressed={minutes === m} onClick={() => setMinutes(m)}>
+              {m}
+              {' '}min
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="field">
+        <span className="label">Quantité tirée</span>
+        <div className="stepper">
+          <button type="button" className="icon-btn big" aria-label="Moins 10 ml" onClick={() => setMl((v) => clamp(v - 10))}>
+            −
+          </button>
+          <output className="stepper-value" aria-live="polite">
+            {ml} <small>ml</small>
+          </output>
+          <button type="button" className="icon-btn big" aria-label="Plus 10 ml" onClick={() => setMl((v) => clamp(v + 10))}>
+            +
+          </button>
+        </div>
+        <div className="chips">
+          {PUMP_PRESETS.map((p) => (
+            <button key={p} type="button" className="chip" aria-pressed={ml === p} onClick={() => setMl(p)}>
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="field">
+        <span className="label" id="pump-storage">
+          Mettre en stock
+        </span>
+        <div className="segmented" role="group" aria-labelledby="pump-storage">
+          <button type="button" aria-pressed={storage === null} onClick={() => setStorage(null)}>
+            Non
+          </button>
+          <button type="button" aria-pressed={storage === 'fridge'} onClick={() => setStorage('fridge')}>
+            Frigo
+          </button>
+          <button type="button" aria-pressed={storage === 'freezer'} onClick={() => setStorage('freezer')}>
+            Congélateur
+          </button>
+        </div>
+        {storage && (
+          <span className="hint">{storage === 'fridge' ? 'À utiliser sous 48 h (au fond du réfrigérateur).' : 'À utiliser sous 4 mois (−18 °C).'}</span>
+        )}
+      </div>
+      <label className="field">
+        <span className="label">Note (facultatif)</span>
+        <input className="input" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
+      </label>
+      <button type="button" className="btn primary block" disabled={storage !== null && ml <= 0} onClick={() => onSave(side, minutes, ml, storage, when, note.trim() || null)}>
         Enregistrer
       </button>
     </Sheet>

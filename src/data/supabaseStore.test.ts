@@ -60,6 +60,10 @@ describe('supabaseStore', () => {
       amountMl: null,
       diaperType: null,
       note: null,
+      createdBy: null,
+      tempC: null,
+      medName: null,
+      medDose: null,
     });
   });
 
@@ -120,6 +124,56 @@ describe('supabaseStore', () => {
     expect(b).toMatchObject({ id: 'b1', name: 'Léa', birthDate: '2026-09-20', inviteCode: 'ABCDE12345' });
   });
 
+  it('lit les bébés avec le rôle via list_my_babies (nounou : ni date ni code)', async () => {
+    const { client, calls } = fakeClient({ data: [{ id: 'b1', name: 'Léa', birth_date: null, invite_code: null, created_at: '2026-10-01T00:00:00Z', role: 'nanny' }] });
+    const [b] = await createSupabaseStore(client).listBabies();
+    expect(calls.rpc).toEqual(['list_my_babies', undefined]);
+    expect(b).toEqual({ id: 'b1', name: 'Léa', birthDate: null, inviteCode: undefined, createdAt: '2026-10-01T00:00:00Z', role: 'nanny', sex: null });
+  });
+
+  describe('santé (température, médicament)', () => {
+    it("n'envoie les champs santé que pour les événements concernés (base non migrée : le reste fonctionne)", async () => {
+      const bottle = fakeClient({ data: row });
+      await createSupabaseStore(bottle.client).addEvent({ ...emptyEvent('b1', 'bottle', '2026-10-13T07:00:00.000Z'), amountMl: 90, tempC: null, medName: null });
+      expect(Object.keys(bottle.calls.payload as object)).not.toContain('temp_c');
+      expect(Object.keys(bottle.calls.payload as object)).not.toContain('med_name');
+      const temp = fakeClient({ data: { ...row, kind: 'temp', side: null, temp_c: '38.4' } });
+      const t = await createSupabaseStore(temp.client).addEvent({ ...emptyEvent('b1', 'temp', '2026-10-13T07:00:00.000Z'), tempC: 38.4 });
+      expect((temp.calls.payload as Record<string, unknown>).temp_c).toBe(38.4);
+      expect(t.tempC).toBe(38.4); // numeric renvoyé en texte : converti
+      const dose = fakeClient({ data: { ...row, kind: 'med', side: null, med_name: 'Paracétamol', med_dose: null } });
+      await createSupabaseStore(dose.client).updateEvent('e1', { medDose: null });
+      expect(dose.calls.payload).toEqual({ med_dose: null }); // effacer la dose fonctionne
+    });
+  });
+
+  describe('croissance', () => {
+    it('convertit une mesure (grammes, millimètres) et n\'envoie que les champs fournis', async () => {
+      const row = { id: 'm1', baby_id: 'b1', measured_on: '2026-10-01', weight_g: 4250, length_mm: 545, head_mm: null, note: null };
+      const read = fakeClient({ data: [row] });
+      expect(await createSupabaseStore(read.client).listMeasurements('b1')).toEqual([
+        { id: 'm1', babyId: 'b1', measuredOn: '2026-10-01', weightG: 4250, lengthMm: 545, headMm: null, note: null },
+      ]);
+      const upd = fakeClient({ data: row });
+      await createSupabaseStore(upd.client).updateMeasurement('m1', { weightG: 4300 });
+      expect(upd.calls.payload).toEqual({ weight_g: 4300 });
+    });
+
+    it("le sexe n'est envoyé que s'il est fourni (base sans migration 0007 : le reste du profil s'enregistre)", async () => {
+      const a = fakeClient({ data: { id: 'b1', name: 'Léa', birth_date: null, invite_code: 'X', created_at: '' } });
+      await createSupabaseStore(a.client).updateBaby('b1', { name: 'Léa', birthDate: null });
+      expect(a.calls.payload).toEqual({ name: 'Léa', birth_date: null });
+      const b = fakeClient({ data: { id: 'b1', name: 'Léa', birth_date: null, invite_code: 'X', created_at: '', sex: 'f' } });
+      await createSupabaseStore(b.client).updateBaby('b1', { name: 'Léa', birthDate: null, sex: 'f' });
+      expect(b.calls.payload).toEqual({ name: 'Léa', birth_date: null, sex: 'f' });
+    });
+
+    it('colonne ou table absente (migration non appliquée) : message clair', async () => {
+      const { client } = fakeClient({ error: { message: "Could not find the table 'public.measurements' in the schema cache" } });
+      await expect(createSupabaseStore(client).listMeasurements('b1')).rejects.toThrow('appliquez les migrations Supabase');
+    });
+  });
+
   describe('membres', () => {
     it('liste les membres avec leur e-mail et leur rôle', async () => {
       const { client, calls } = fakeClient({ data: [{ user_id: 'u1', email: 'maman@example.com', role: 'owner', joined_at: '2026-10-13T10:00:00Z' }] });
@@ -154,7 +208,14 @@ describe('supabaseStore', () => {
       const inv = await createSupabaseStore(client).inviteParent('b1', ' Papa@Example.com ');
       expect(calls.rpc).toEqual(['invite_parent', { p_baby_id: 'b1', p_email: ' Papa@Example.com ' }]);
       expect(calls.otp).toBeUndefined();
-      expect(inv).toEqual({ id: 'i1', babyId: 'b1', email: 'papa@example.com', createdAt: '2026-10-13T10:00:00Z', expiresAt: '2026-10-27T10:00:00Z', acceptedAt: null });
+      expect(inv).toEqual({ id: 'i1', babyId: 'b1', email: 'papa@example.com', createdAt: '2026-10-13T10:00:00Z', expiresAt: '2026-10-27T10:00:00Z', acceptedAt: null, role: 'parent' });
+    });
+
+    it("transmet le rôle nounou (et seulement dans ce cas, pour rester compatible avec une base non migrée)", async () => {
+      const { client, calls } = fakeClient({ data: { ...invRow, role: 'nanny' } });
+      const inv = await createSupabaseStore(client).inviteParent('b1', 'nounou@example.com', 'nanny');
+      expect(calls.rpc).toEqual(['invite_parent', { p_baby_id: 'b1', p_email: 'nounou@example.com', p_role: 'nanny' }]);
+      expect(inv.role).toBe('nanny');
     });
 
     it('traduit le refus de la base', async () => {

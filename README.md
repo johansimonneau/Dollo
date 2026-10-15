@@ -38,7 +38,7 @@ Sur [supabase.com](https://supabase.com) → *New project*. Choisissez une **ré
 > Utilisez un projet vierge, pas une base qui sert déjà à autre chose : la migration crée les tables `babies`, `baby_members`, `events` et `baby_invitations` dans le schéma `public`.
 
 ### 2. Créer les tables
-*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`.
+*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`, `0005_nanny.sql`, `0006_reminders.sql`, `0007_growth.sql`, `0008_health.sql`, `0009_milk.sql`.
 
 ### 3. Récupérer les deux clés publiques
 *Project Settings → API Keys* (ou *API*) :
@@ -89,22 +89,92 @@ Ne les lancez jamais sur votre base Supabase : le script crée de faux rôles et
 
 Projet Vite standard : sur Vercel, framework *Vite*, commande `npm run build`, dossier `dist`.
 
+## Rappels et notifications
+
+*Réglages → Rappels* (pour chaque personne et chaque bébé) :
+- **Prochain repas** : 2 h à 4 h après le *début* de la dernière tétée ou du dernier biberon ;
+- **Pas de couche mouillée** depuis 4, 6 ou 8 h (seules les couches pipi ou pipi + caca comptent) ;
+- **Pas de notification la nuit** (22 h – 7 h, heure du téléphone) ;
+- **Activer les notifications sur ce téléphone**. Sur iPhone, il faut que Dollo soit ajoutée à l'écran d'accueil (exigence d'Apple).
+
+Dans l'app, un bandeau « C'est bientôt l'heure de manger » s'affiche toujours. Les notifications (app fermée) sont envoyées par la fonction serveur `supabase/functions/send-reminders`, une seule fois par repas ou par couche. Pas de notification pour un suivi en pause depuis plus de 12 h, et pas de notification à un appareil déconnecté, désinstallé, ou à une personne retirée du suivi.
+
+**Mise en service (une fois)** :
+1. Appliquer `0006_reminders.sql`.
+2. Générer une paire de clés VAPID (par ex. `npx web-push generate-vapid-keys`).
+3. Déployer la fonction `send-reminders` et lui donner les secrets `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (`mailto:votre@adresse`).
+4. Clé **publique** : constante `DOLLO_VAPID_PUBLIC_KEY` de `vite.config.ts` (ou variable `VAPID_PUBLIC_KEY` sur Vercel, prioritaire). À changer si l'on régénère la paire.
+5. Planifier l'envoi toutes les 5 minutes : dans le SQL Editor, exécuter le bloc commenté à la fin de `0006_reminders.sql`, avec l'adresse du projet et la clé publique (anon / publishable).
+
+Sans les étapes 2 à 5, les rappels restent affichés dans l'app (bandeaux), sans notification.
+
+## Croissance et rapport pour le pédiatre
+
+*Stats → Croissance* : poids, taille et périmètre crânien, saisis à chaque pesée (PMI, pédiatre, pèse-bébé). Ils sont placés sur les **courbes de référence de l'OMS** (0–24 mois, filles et garçons), avec bandes 3e–97e et 15e–85e et la médiane, et le percentile de chaque mesure. Les données OMS (paramètres LMS officiels) sont dans `src/lib/whoData.ts`. Les calculs sont vérifiés contre les percentiles publiés (`growth.test.ts`). Le sexe du bébé se règle dans *Réglages* ou au premier affichage des courbes.
+
+*Réglages → Données → Rapport pour le pédiatre* : une page A4 avec les 7 derniers jours (tétées, biberons en ml bus, couches pipi / caca, sommeil, et les moyennes), les mesures avec percentiles, les trois courbes et les notes des parents. « Imprimer / PDF » ouvre la fenêtre d'impression du téléphone, d'où l'on choisit « Enregistrer en PDF ».
+
+Mesures et sexe sont réservés aux parents : la nounou n'y a pas accès (RLS, migration `0007_growth.sql`). Cette migration verrouille aussi l'auteur et le bébé d'un événement, qui ne sont plus modifiables depuis l'API.
+
+## Santé : température, médicaments, vaccins
+
+- **Température** et **médicament** se notent depuis *Aujourd'hui*, comme les autres événements : partagés en direct, notés hors ligne, et la nounou peut les saisir. Au-delà de 38 °C, un bandeau rappelle quoi faire : avant 3 mois, consulter rapidement (médecin ou 15) ; ensuite, surveiller et appeler en cas de doute.
+- Avant une nouvelle prise, la feuille Médicament affiche **la dernière prise du même médicament** et sa dose. Le but est d'éviter qu'il soit donné deux fois par deux personnes. Dollo n'indique aucune posologie.
+- **Traitement quotidien** (vitamine D…) : *Réglages → Rappels*. Bandeau et notification à l'heure choisie tant que la prise du jour n'est pas notée, avec une seule notification par jour.
+- **Vaccins** (*Stats → Santé*) : le calendrier français du nourrisson 2025–2026 (`src/lib/vaccines.ts`), dose par dose, avec date prévue et statut (fait, à faire, plus tard). Les méningocoques B et ACWY sont obligatoires depuis 2025, le rotavirus est recommandé. Un bandeau signale le rendez-vous à venir. Le calendrier sert de repère : le médecin décide du schéma.
+- Le rapport pour le pédiatre reprend températures, médicaments et vaccins.
+
+Vaccins : parents uniquement (RLS, migration `0008_health.sql`).
+
+## Tire-lait et stock de lait
+
+- **Tirage** (bouton sur *Aujourd'hui*) : sein gauche, droit ou les deux, durée facultative, quantité. On peut le **mettre en stock** directement, au frigo ou au congélateur. Les tirages apparaissent dans le journal, l'export et le rapport pour le pédiatre (total et moyenne par jour).
+- **Stock** : une carte « Stock de lait » affiche les quantités au frigo et au congélateur. Le sachet le plus proche de sa date limite est proposé en premier. Actions : **Donner en biberon** (crée le biberon et sort le sachet du stock), **Décongeler**, **Jeter**.
+- **Dates limites** (`src/lib/milk.ts`) : 48 h au réfrigérateur, 4 mois au congélateur, 24 h une fois décongelé et sans recongeler. Ce sont les repères prudents les plus courants : les consignes de la maternité priment. Un bandeau prévient quand du lait au frigo arrive à moins de 12 h de sa limite, puis quand il est périmé.
+- Toute la famille partage le stock, nounou comprise, mais seuls les parents peuvent supprimer une ligne (migration `0009_milk.sql`).
+
+## Mains libres
+
+- **Dicter** (bouton micro sur *Aujourd'hui*, via la reconnaissance vocale du téléphone) : « biberon 120 », « couche pipi », « caca », « sein gauche », « tétée », « fin de tétée », « dodo », « réveil », « température 38,2 », « vitamine D », « médicament smecta »… L'interprétation (`src/lib/commands.ts`) gère les variantes courantes, et si la première transcription n'est pas comprise, Dollo essaie les suivantes. Chaque saisie peut être annulée.
+- **Liens d'action** : `/?app&do=biberon%20120` enregistre l'action, `/?app&open=bottle` ouvre la feuille. Le lien n'est exécuté qu'une fois puis retiré de l'adresse. Sur iPhone, on l'utilise avec **Siri** (app Raccourcis → « Ouvrir des URL » → « Dis Siri, biberon 120 »). Sur Android, avec une routine de l'Assistant Google, ou en icône épinglée sur l'écran d'accueil. *Réglages → Mains libres* fournit les liens à copier.
+- **Appui long sur l'icône** (Android, ordinateur) : Biberon, Couche, Tétée, Dodo (raccourcis du manifeste).
+- Une app installée depuis le navigateur ne peut pas avoir de **widget** d'écran d'accueil, ni sur iOS ni sur Android. Il faudra les versions App Store / Google Play.
+
+## Hors ligne
+
+Sans réseau (chambre sans signal, métro), Dollo s'ouvre avec les dernières données vues, et **on continue à noter** : chaque saisie s'affiche tout de suite et est gardée sur le téléphone. Un bandeau « Hors connexion · 2 saisies en attente » l'indique. Au retour du réseau, les saisies partent toutes seules, dans l'ordre et **sans doublon** : l'identifiant est choisi par le téléphone, et un envoi dont la réponse s'est perdue n'est pas recréé. Une saisie corrigée ou supprimée hors ligne n'envoie que le résultat final. Si le serveur refuse une saisie (accès retiré entre-temps, événement supprimé par l'autre parent), elle est abandonnée et un message le signale. La file est propre à chaque compte (`src/data/offlineStore.ts`).
+
+## Mises à jour sans frustration
+
+- **Aucune interruption** : une nouvelle version se télécharge en arrière-plan et ne s'applique qu'au lancement (avant toute interaction) ou quand l'app passe en arrière-plan — jamais pendant une saisie (`src/lib/updates.ts`). Une app restée ouverte vérifie les nouveautés toutes les heures et à chaque retour au premier plan.
+- **Aucune déconnexion** : la session et les données restent sur l'appareil d'une version à l'autre.
+- **Base et app compatibles dans les deux sens** : les migrations ajoutent sans casser, et l'app détecte une base pas encore migrée (repli automatique) — on peut publier l'app avant ou après la migration.
+- **Vérifications automatiques** (`.github/workflows/ci.yml`) sur chaque PR : types, tests unitaires, build, et toutes les migrations + suites de sécurité sur une base jetable. Une PR rouge ne doit pas être fusionnée.
+
 ## Limites connues
 
-- **Pas de file d'attente hors-ligne en mode cloud** : l'interface se charge sans réseau, mais une écriture faite sans connexion échoue avec un message au lieu d'être mise en file. À traiter en priorité avant un usage réel (wifi capricieux la nuit).
-- Pas de notifications push (rappel de tétée, fenêtre de sieste) ni de courbes de croissance.
+- Hors ligne, seules les saisies d'événements sont mises en file ; inviter, régler les rappels ou modifier le profil demandent du réseau.
 - Les données du mode local ne sont pas migrées automatiquement vers le compte cloud.
 
 ---
 
-## Feuille de route — V2 : partager avec la nounou
+## V2 : partager avec la nounou
 
-**But** : la nounou renseigne la journée (biberons, couches, siestes) et les parents la voient, **sans que la nounou accède aux données des parents**.
-
-**Principe** : un rôle `nanny` dans `baby_members`. La limite est posée **dans la base** (RLS), pas seulement dans l'interface : une nounou qui interroge l'API directement n'obtient rien de plus.
+La nounou renseigne la journée et les parents la voient en direct, **sans que la nounou accède aux données des parents**. La limite est posée **dans la base** (RLS, fonctions, trigger — migration `0005_nanny.sql`) : une nounou qui interroge l'API directement n'obtient rien de plus que dans l'app.
 
 | La nounou voit / peut | La nounou ne voit pas / ne peut pas |
 | --- | --- |
+| le prénom du bébé | la date de naissance, le code d'invitation, les autres bébés |
+| les événements des **dernières 48 h** | l'historique plus ancien, les stats, l'export |
+| ajouter des événements, corriger ou supprimer **les siens** | modifier ou supprimer ceux des parents |
+| **terminer** un dodo / une tétée lancé par un parent | — |
+| — | les membres, leurs e-mails, les invitations ; inviter quelqu'un |
+
+**Côté parents** : *Réglages → Partager le suivi → Nounou* pour l'inviter (même parcours que pour un parent : lien partagé, compte avec mot de passe). Ce qu'elle note est marqué « par la nounou » dans le journal. Le créateur du suivi la **retire** en un geste ; plusieurs nounous possibles.
+
+**Choix faits** (modifiables) : écriture autorisée ; fenêtre de 48 h ; accès jusqu'au retrait (pas de date de fin) ; les notes des événements visibles dans la fenêtre sont lisibles par la nounou.
+
+--- | --- |
 | le prénom du bébé | les autres bébés, la date de naissance, les stats longues, l'export |
 | les événements des dernières 24–48 h (fenêtre glissante) | l'historique ancien |
 | ajouter des événements, corriger **les siens** | modifier ceux des parents, supprimer |

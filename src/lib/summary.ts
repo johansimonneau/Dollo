@@ -11,6 +11,13 @@ export interface Summary {
   poop: number;
   sleepMs: number;
   sleepCount: number;
+  tempCount: number;
+  /** Température la plus haute de la fenêtre, ou null. */
+  tempMax: number | null;
+  medCount: number;
+  pumpCount: number;
+  /** Lait tiré (ml). */
+  pumpMl: number;
 }
 
 const overlap = (start: number, end: number, winStart: number, winEnd: number) =>
@@ -33,6 +40,11 @@ export function summarize(events: BabyEvent[], winStart: number, winEnd: number,
     poop: 0,
     sleepMs: 0,
     sleepCount: 0,
+    tempCount: 0,
+    tempMax: null,
+    medCount: 0,
+    pumpCount: 0,
+    pumpMl: 0,
   };
   for (const e of events) {
     const start = new Date(e.startedAt).getTime();
@@ -59,6 +71,21 @@ export function summarize(events: BabyEvent[], winStart: number, winEnd: number,
       case 'sleep':
         if (startsInside) s.sleepCount += 1;
         s.sleepMs += overlap(start, end, winStart, winEnd);
+        break;
+      case 'temp':
+        if (startsInside && e.tempC != null) {
+          s.tempCount += 1;
+          s.tempMax = Math.max(s.tempMax ?? e.tempC, e.tempC);
+        }
+        break;
+      case 'med':
+        if (startsInside) s.medCount += 1;
+        break;
+      case 'pump':
+        if (startsInside) {
+          s.pumpCount += 1;
+          s.pumpMl += e.amountMl ?? 0;
+        }
         break;
     }
   }

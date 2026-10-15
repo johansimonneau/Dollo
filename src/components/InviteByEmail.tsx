@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { errorMessage, type Store } from '../data/store';
 import { DAY } from '../lib/time';
-import type { Baby, Invitation } from '../lib/types';
+import type { Baby, Invitation, InviteRole } from '../lib/types';
 import { useToast } from './toast';
 
 interface Props {
@@ -29,9 +29,13 @@ function statusLabel(i: Invitation, now: number): string {
 }
 
 /** Message à envoyer à la personne invitée (SMS, WhatsApp, e-mail…). */
-export function invitationMessage(babyName: string, email: string, appUrl: string): string {
+export function invitationMessage(babyName: string, email: string, appUrl: string, role: InviteRole = 'parent'): string {
+  const intro =
+    role === 'nanny'
+      ? `Pour noter la journée de ${babyName} (biberons, couches, dodos), je t'invite sur Dollo : on verra en direct ce que tu notes.\n\n`
+      : `Je t'invite à suivre ${babyName} sur Dollo (tétées, biberons, couches, sommeil).\n\n`;
   return (
-    `Je t'invite à suivre ${babyName} sur Dollo (tétées, biberons, couches, sommeil).\n\n` +
+    intro +
     `1. Ouvre ${appUrl}\n` +
     `2. « Créer un compte » avec l'adresse ${email} et un mot de passe\n` +
     `3. Clique sur le lien de confirmation reçu par e-mail, puis connecte-toi : tu arriveras directement sur le suivi de ${babyName}.`
@@ -45,6 +49,7 @@ export function invitationMessage(babyName: string, email: string, appUrl: strin
 export function InviteByEmail({ store, baby, now }: Props) {
   const toast = useToast();
   const [email, setEmail] = useState('');
+  const [role, setRole] = useState<InviteRole>('parent');
   const [busy, setBusy] = useState(false);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -64,8 +69,8 @@ export function InviteByEmail({ store, baby, now }: Props) {
   }, [load]);
 
   /** Ouvre le menu de partage du téléphone ; à défaut (ordinateur), copie le message. */
-  const share = async (address: string) => {
-    const text = invitationMessage(baby.name, address, `${window.location.origin}/?app`);
+  const share = async (address: string, inviteRole: InviteRole) => {
+    const text = invitationMessage(baby.name, address, `${window.location.origin}/?app`, inviteRole);
     if (typeof navigator.share === 'function') {
       try {
         await navigator.share({ title: `Suivre ${baby.name} sur Dollo`, text });
@@ -82,14 +87,14 @@ export function InviteByEmail({ store, baby, now }: Props) {
     }
   };
 
-  const send = async (address: string) => {
+  const send = async (address: string, inviteRole: InviteRole) => {
     setBusy(true);
     try {
-      const invitation = await store.inviteParent(baby.id, address);
-      toast.show(`Invitation enregistrée pour ${invitation.email}.`);
+      const invitation = await store.inviteParent(baby.id, address, inviteRole);
+      toast.show(`Invitation enregistrée pour ${invitation.email}${inviteRole === 'nanny' ? ' (nounou)' : ''}.`);
       setEmail('');
       await load();
-      await share(invitation.email);
+      await share(invitation.email, inviteRole);
     } catch (e) {
       toast.show(errorMessage(e), { tone: 'error' });
     } finally {
@@ -99,7 +104,7 @@ export function InviteByEmail({ store, baby, now }: Props) {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (email.trim()) void send(email.trim());
+    if (email.trim()) void send(email.trim(), role);
   };
 
   const cancel = async (i: Invitation) => {
@@ -114,14 +119,22 @@ export function InviteByEmail({ store, baby, now }: Props) {
 
   return (
     <div className="invite-email">
+      <div className="segmented invite-role" role="group" aria-label="Inviter en tant que">
+        <button type="button" aria-pressed={role === 'parent'} onClick={() => setRole('parent')}>
+          Parent
+        </button>
+        <button type="button" aria-pressed={role === 'nanny'} onClick={() => setRole('nanny')}>
+          Nounou
+        </button>
+      </div>
       <form onSubmit={submit} className="inline-form" aria-label="Inviter par e-mail">
         <input
           className="input"
           type="email"
           inputMode="email"
           autoComplete="off"
-          placeholder="E-mail de l'autre parent"
-          aria-label="E-mail de l'autre parent"
+          placeholder={role === 'nanny' ? 'E-mail de la nounou' : "E-mail de l'autre parent"}
+          aria-label={role === 'nanny' ? 'E-mail de la nounou' : "E-mail de l'autre parent"}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
@@ -130,7 +143,10 @@ export function InviteByEmail({ store, baby, now }: Props) {
         </button>
       </form>
       <p className="hint">
-        Envoyez-lui ensuite le lien (SMS, WhatsApp…) : elle crée son compte avec cette adresse et un mot de passe, et retrouve {baby.name}{' '}
+        {role === 'nanny'
+          ? `La nounou voit et note les dernières 48 h, sans accès à vos informations (date de naissance, historique, membres, export). Vous la retirez en un geste.`
+          : `Accès complet, comme vous.`}{' '}
+        Envoyez-lui ensuite le lien (SMS, WhatsApp…) : la personne crée son compte avec cette adresse et un mot de passe, et retrouve {baby.name}{' '}
         automatiquement.
       </p>
 
@@ -143,16 +159,19 @@ export function InviteByEmail({ store, baby, now }: Props) {
               <li key={i.id} className={`invitation ${status}`}>
                 <span className="invitation-main">
                   <span className="invitation-email">{i.email}</span>
-                  <span className="invitation-status">{statusLabel(i, now)}</span>
+                  <span className="invitation-status">
+                    {i.role === 'nanny' ? 'Nounou · ' : ''}
+                    {statusLabel(i, now)}
+                  </span>
                 </span>
                 {status !== 'accepted' && (
                   <span className="invitation-actions">
                     {status === 'pending' ? (
-                      <button type="button" className="link-btn" onClick={() => void share(i.email)}>
+                      <button type="button" className="link-btn" onClick={() => void share(i.email, i.role)}>
                         Envoyer le lien
                       </button>
                     ) : (
-                      <button type="button" className="link-btn" disabled={busy} onClick={() => void send(i.email)}>
+                      <button type="button" className="link-btn" disabled={busy} onClick={() => void send(i.email, i.role)}>
                         Renouveler
                       </button>
                     )}

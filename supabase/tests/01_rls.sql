@@ -72,7 +72,8 @@ select expect_error('Bob ne peut pas régénérer le code', format($q$select reg
 select test_as(:'alice');
 insert into babies (name) values ('Tom') returning id as id \gset tom_
 select test_as(:'bob');
-select expect_error('Bob ne peut pas déplacer un événement vers un bébé non partagé', format($q$update events set baby_id = %L where kind = 'bottle'$q$, :'tom_id'), 'row-level security');
+-- Depuis 0007, le bébé d'un événement n'est plus modifiable du tout (refus avant même la RLS).
+select expect_error('Bob ne peut pas déplacer un événement vers un bébé non partagé', format($q$update events set baby_id = %L where kind = 'bottle'$q$, :'tom_id'), 'permission denied');
 select expect_count('Bob ne voit pas Tom', format($q$select count(*) from babies where id = %L$q$, :'tom_id'), 0);
 
 -- 8. Régénération du code par Alice : l'ancien code ne marche plus

@@ -1,11 +1,17 @@
-import type { Baby, BabyEvent, NewEvent } from '../lib/types';
+import { DEFAULT_PREFS, type ReminderPrefs } from '../../supabase/functions/_shared/reminders';
+import type { Baby, BabyEvent, Measurement, MilkBag, NewEvent, Vaccination } from '../lib/types';
 import { StoreError, type BabyInput, type Store } from './store';
 
 const KEY = 'dollo:v1';
+/** Réglages de rappels en mode local (bandeaux dans l'app uniquement). */
+const PREFS_KEY = 'dollo:reminders';
 
 interface Data {
   babies: Baby[];
   events: BabyEvent[];
+  measurements: Measurement[];
+  vaccinations: Vaccination[];
+  milkBags: MilkBag[];
 }
 
 function read(): Data {
@@ -13,12 +19,12 @@ function read(): Data {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<Data>;
-      return { babies: parsed.babies ?? [], events: parsed.events ?? [] };
+      return { babies: parsed.babies ?? [], events: parsed.events ?? [], measurements: parsed.measurements ?? [], vaccinations: parsed.vaccinations ?? [], milkBags: parsed.milkBags ?? [] };
     }
   } catch {
     /* stockage indisponible ou corrompu : on repart d'une base vide */
   }
-  return { babies: [], events: [] };
+  return { babies: [], events: [], measurements: [], vaccinations: [], milkBags: [] };
 }
 
 function write(data: Data) {
@@ -51,7 +57,7 @@ export function createLocalStore(): Store {
       const data = read();
       const baby = data.babies.find((b) => b.id === id);
       if (!baby) throw new StoreError('Bébé introuvable.');
-      const updated = { ...baby, name: input.name, birthDate: input.birthDate };
+      const updated = { ...baby, name: input.name, birthDate: input.birthDate, ...(input.sex !== undefined ? { sex: input.sex } : {}) };
       write({ ...data, babies: data.babies.map((b) => (b.id === id ? updated : b)) });
       return updated;
     },
@@ -84,6 +90,91 @@ export function createLocalStore(): Store {
       throw new StoreError('Le partage entre parents nécessite la synchronisation en ligne (Supabase).');
     },
 
+    async listMeasurements(babyId) {
+      return read()
+        .measurements.filter((m) => m.babyId === babyId)
+        .sort((a, b) => a.measuredOn.localeCompare(b.measuredOn));
+    },
+
+    async addMeasurement(m) {
+      const data = read();
+      const created: Measurement = { ...m, id: crypto.randomUUID() };
+      write({ ...data, measurements: [...data.measurements, created] });
+      return created;
+    },
+
+    async updateMeasurement(id, patch) {
+      const data = read();
+      const cur = data.measurements.find((m) => m.id === id);
+      if (!cur) throw new StoreError('Mesure introuvable.');
+      const updated = { ...cur, ...patch, id };
+      write({ ...data, measurements: data.measurements.map((m) => (m.id === id ? updated : m)) });
+      return updated;
+    },
+
+    async deleteMeasurement(id) {
+      const data = read();
+      write({ ...data, measurements: data.measurements.filter((m) => m.id !== id) });
+    },
+
+    async listVaccinations(babyId) {
+      return read().vaccinations.filter((v) => v.babyId === babyId);
+    },
+
+    async saveVaccination(babyId, code, givenOn, note) {
+      const data = read();
+      const cur = data.vaccinations.find((v) => v.babyId === babyId && v.code === code);
+      const saved: Vaccination = { id: cur?.id ?? crypto.randomUUID(), babyId, code, givenOn, note };
+      write({ ...data, vaccinations: [...data.vaccinations.filter((v) => v.id !== saved.id), saved] });
+      return saved;
+    },
+
+    async deleteVaccination(id) {
+      const data = read();
+      write({ ...data, vaccinations: data.vaccinations.filter((v) => v.id !== id) });
+    },
+
+    async listMilkBags(babyId) {
+      return read().milkBags.filter((b) => b.babyId === babyId && !b.usedAt && !b.discardedAt);
+    },
+
+    async addMilkBag(bag) {
+      const data = read();
+      const created: MilkBag = { ...bag, id: crypto.randomUUID(), usedAt: null, discardedAt: null };
+      write({ ...data, milkBags: [...data.milkBags, created] });
+      return created;
+    },
+
+    async updateMilkBag(id, patch) {
+      const data = read();
+      const cur = data.milkBags.find((b) => b.id === id);
+      if (!cur) throw new StoreError('Sachet introuvable.');
+      const updated = { ...cur, ...patch };
+      write({ ...data, milkBags: data.milkBags.map((b) => (b.id === id ? updated : b)) });
+      return updated;
+    },
+
+    async getReminderPrefs(babyId) {
+      try {
+        const raw = localStorage.getItem(`${PREFS_KEY}:${babyId}`);
+        return raw ? { ...DEFAULT_PREFS, ...(JSON.parse(raw) as Partial<ReminderPrefs>) } : { ...DEFAULT_PREFS };
+      } catch {
+        return { ...DEFAULT_PREFS };
+      }
+    },
+
+    async saveReminderPrefs(babyId, prefs) {
+      localStorage.setItem(`${PREFS_KEY}:${babyId}`, JSON.stringify(prefs));
+    },
+
+    async savePushSubscription() {
+      throw new StoreError('Les notifications nécessitent la synchronisation en ligne (Supabase).');
+    },
+
+    async deletePushSubscription() {
+      /* aucune notification en mode local */
+    },
+
     async acceptInvitations() {
       return [];
     },
@@ -93,9 +184,9 @@ export function createLocalStore(): Store {
       return read().events.filter((e) => e.babyId === babyId && new Date(e.startedAt).getTime() >= since);
     },
 
-    async addEvent(event: NewEvent) {
+    async addEvent(event: NewEvent, id?: string) {
       const data = read();
-      const created: BabyEvent = { ...event, id: crypto.randomUUID() };
+      const created: BabyEvent = { ...event, id: id ?? crypto.randomUUID() };
       write({ ...data, events: [...data.events, created] });
       notify();
       return created;

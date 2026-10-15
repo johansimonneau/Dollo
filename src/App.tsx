@@ -1,11 +1,13 @@
 import type { Session } from '@supabase/supabase-js';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ToastProvider } from './components/toast';
 import { createLocalStore } from './data/localStore';
 import { recoveryInUrl, supabase } from './data/supabase';
 import { createSupabaseStore } from './data/supabaseStore';
+import { createOfflineStore } from './data/offlineStore';
 import { BabyGate, Splash } from './BabyGate';
 import { AuthScreen, NewPasswordScreen } from './screens/Auth';
+import { disablePush } from './lib/push';
 
 export default function App() {
   const client = supabase;
@@ -13,7 +15,18 @@ export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(client ? undefined : null);
   // Ouverture via « mot de passe oublié » : on demande le nouveau mot de passe avant d'entrer dans l'app.
   const [recovering, setRecovering] = useState(recoveryInUrl);
-  const store = useMemo(() => (client ? createSupabaseStore(client) : createLocalStore()), []);
+  // Compte courant : la file des saisies hors ligne est propre à chaque compte.
+  const userIdRef = useRef<string | null>(null);
+  userIdRef.current = session?.user.id ?? null;
+  const store = useMemo(
+    () =>
+      client
+        ? createOfflineStore(createSupabaseStore(client), () => userIdRef.current, (count) =>
+            window.dispatchEvent(new CustomEvent('dollo:sync-dropped', { detail: count })),
+          )
+        : createLocalStore(),
+    [],
+  );
 
   useEffect(() => {
     if (!client) return;
@@ -38,7 +51,16 @@ export default function App() {
         key={session?.user.id ?? 'local'}
         store={store}
         email={session?.user.email ?? null}
-        onSignOut={client ? () => void client.auth.signOut() : null}
+        userId={session?.user.id ?? null}
+        onSignOut={
+          client
+            ? () =>
+                // Un téléphone déconnecté ne doit plus recevoir les rappels de ce compte.
+                void disablePush(store)
+                  .catch(() => undefined)
+                  .finally(() => void client.auth.signOut())
+            : null
+        }
       />
     </ToastProvider>
   );

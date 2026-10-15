@@ -1,6 +1,12 @@
-export type EventKind = 'breast' | 'bottle' | 'diaper' | 'sleep';
+export type EventKind = 'breast' | 'bottle' | 'diaper' | 'sleep' | 'temp' | 'med' | 'pump';
 export type BreastSide = 'left' | 'right';
+/** Tire-lait : un sein ou les deux (double pompe). */
+export type PumpSide = BreastSide | 'both';
 export type DiaperType = 'pee' | 'poop' | 'both';
+
+/** Rôle sur un bébé : « owner » a créé le suivi ; la nounou n'a qu'un accès restreint (voir migration 0005). */
+export type Role = 'owner' | 'parent' | 'nanny';
+export type InviteRole = 'parent' | 'nanny';
 
 export interface Baby {
   id: string;
@@ -10,6 +16,33 @@ export interface Baby {
   /** Code à partager avec l'autre parent (mode cloud uniquement). */
   inviteCode?: string;
   createdAt: string;
+  /** Rôle de l'utilisateur connecté (mode cloud). Absent = accès complet. */
+  role?: Role;
+  /** Sexe (courbes de croissance OMS). null / absent = non renseigné. */
+  sex?: 'f' | 'm' | null;
+}
+
+/** Mesure de croissance (poids en grammes, tailles en millimètres : pas d'arrondi flottant en base). */
+export interface Measurement {
+  id: string;
+  babyId: string;
+  /** YYYY-MM-DD */
+  measuredOn: string;
+  weightG: number | null;
+  lengthMm: number | null;
+  headMm: number | null;
+  note: string | null;
+}
+export type NewMeasurement = Omit<Measurement, 'id'>;
+
+/** Dose de vaccin notée comme faite (code : voir lib/vaccines.ts). */
+export interface Vaccination {
+  id: string;
+  babyId: string;
+  code: string;
+  /** YYYY-MM-DD */
+  givenOn: string;
+  note: string | null;
 }
 
 /** Personne ayant accès au suivi d'un bébé. */
@@ -17,7 +50,7 @@ export interface Member {
   userId: string;
   email: string;
   /** « owner » : a créé le suivi, peut retirer les autres. */
-  role: 'owner' | 'parent';
+  role: Role;
   joinedAt: string;
 }
 
@@ -30,6 +63,7 @@ export interface Invitation {
   expiresAt: string;
   /** Renseigné quand la personne a rejoint le bébé. */
   acceptedAt: string | null;
+  role: InviteRole;
 }
 
 export interface BabyEvent {
@@ -40,11 +74,19 @@ export interface BabyEvent {
   startedAt: string;
   /** ISO 8601, ou null tant que la tétée / le sommeil est en cours. */
   endedAt: string | null;
-  side: BreastSide | null;
+  /** Tétée : gauche / droit. Tirage : gauche / droit / les deux. */
+  side: PumpSide | null;
   /** Biberon : quantité réellement BUE par bébé (pas la quantité préparée). */
   amountMl: number | null;
   diaperType: DiaperType | null;
+  /** Température en °C (événement « temp »). */
+  tempC?: number | null;
+  /** Médicament (événement « med ») : nom et dose libre (« 2,4 ml », « 1 goutte »). */
+  medName?: string | null;
+  medDose?: string | null;
   note: string | null;
+  /** Auteur (mode cloud). Rempli par la base, jamais envoyé par l'app. */
+  createdBy?: string | null;
 }
 
 export type NewEvent = Omit<BabyEvent, 'id'>;
@@ -59,3 +101,18 @@ export const emptyEvent = (babyId: string, kind: EventKind, startedAt: string): 
   diaperType: null,
   note: null,
 });
+
+/** Lait maternel tiré en stock (sachet, biberon, pot). */
+export interface MilkBag {
+  id: string;
+  babyId: string;
+  pumpedAt: string;
+  volumeMl: number;
+  storage: 'fridge' | 'freezer' | 'thawed';
+  /** Entrée dans le stockage actuel : point de départ de la date limite. */
+  storedAt: string;
+  usedAt: string | null;
+  discardedAt: string | null;
+  note: string | null;
+}
+export type NewMilkBag = Omit<MilkBag, 'id' | 'usedAt' | 'discardedAt'>;

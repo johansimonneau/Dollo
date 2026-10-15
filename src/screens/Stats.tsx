@@ -59,7 +59,7 @@ export function Stats({ events, now }: Props) {
 
   if (empty) {
     return (
-      <div className="screen">
+      <div className="stats-body">
         <div className="empty-state">
           <p>Les statistiques apparaîtront dès les premiers événements notés.</p>
         </div>
@@ -68,7 +68,7 @@ export function Stats({ events, now }: Props) {
   }
 
   return (
-    <div className="screen">
+    <div className="stats-body">
       <p className="hint">7 derniers jours. Les moyennes excluent aujourd'hui (journée en cours).</p>
 
       <section className="card" aria-label="Sommeil">

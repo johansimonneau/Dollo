@@ -1,4 +1,5 @@
 import type { ReactNode, SVGProps } from 'react';
+import type { EventKind } from '../lib/types';
 
 function Svg({ children, size = 24, ...rest }: SVGProps<SVGSVGElement> & { size?: number; children: ReactNode }) {
   return (
@@ -23,6 +24,33 @@ function Svg({ children, size = 24, ...rest }: SVGProps<SVGSVGElement> & { size?
 type P = { size?: number };
 
 export const Icon = {
+  /** Température : un thermomètre. */
+  Thermo: (p: P) => (
+    <Svg {...p}>
+      <path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0z" />
+      <path d="M12 9v7" />
+    </Svg>
+  ),
+  /** Dictée : un micro. */
+  Mic: (p: P) => (
+    <Svg {...p}>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" />
+    </Svg>
+  ),
+  /** Tire-lait : une goutte. */
+  Drop: (p: P) => (
+    <Svg {...p}>
+      <path d="M12 3.5c3 3.6 6 7 6 10.5a6 6 0 0 1-12 0c0-3.5 3-6.9 6-10.5z" />
+    </Svg>
+  ),
+  /** Médicament : une gélule. */
+  Pill: (p: P) => (
+    <Svg {...p}>
+      <rect x="3" y="8.5" width="18" height="7" rx="3.5" transform="rotate(-45 12 12)" />
+      <path d="m8.5 8.5 7 7" />
+    </Svg>
+  ),
   /** Tétée : un cœur (soin, lien). */
   Breast: (p: P) => (
     <Svg {...p}>
@@ -111,4 +139,15 @@ export const Icon = {
       <rect x="6" y="6" width="12" height="12" rx="2.5" />
     </Svg>
   ),
+};
+
+/** Icône de chaque type d'événement. */
+export const KIND_ICON: Record<EventKind, (p: P) => ReturnType<typeof Icon.Breast>> = {
+  breast: Icon.Breast,
+  bottle: Icon.Bottle,
+  diaper: Icon.Diaper,
+  sleep: Icon.Moon,
+  temp: Icon.Thermo,
+  med: Icon.Pill,
+  pump: Icon.Drop,
 };

@@ -1,9 +1,8 @@
 import { eventTitle } from '../lib/labels';
 import { fmtClock, fmtDuration } from '../lib/time';
 import type { BabyEvent } from '../lib/types';
-import { Icon } from './icons';
+import { Icon, KIND_ICON } from './icons';
 
-const KIND_ICON = { breast: Icon.Breast, bottle: Icon.Bottle, diaper: Icon.Diaper, sleep: Icon.Moon } as const;
 
 export function eventSubtitle(e: BabyEvent, nowMs: number): string {
   const start = new Date(e.startedAt).getTime();
@@ -19,9 +18,11 @@ interface Props {
   event: BabyEvent;
   now: number;
   onClick: (e: BabyEvent) => void;
+  /** Noté par la nounou (affiché aux parents). */
+  byNanny?: boolean;
 }
 
-export function EventRow({ event, now, onClick }: Props) {
+export function EventRow({ event, now, onClick, byNanny }: Props) {
   const I = KIND_ICON[event.kind];
   return (
     <li>
@@ -31,7 +32,10 @@ export function EventRow({ event, now, onClick }: Props) {
         </span>
         <span className="event-text">
           <span className="event-title">{eventTitle(event)}</span>
-          <span className="event-sub">{eventSubtitle(event, now)}</span>
+          <span className="event-sub">
+            {eventSubtitle(event, now)}
+            {byNanny && <span className="by-nanny"> · par la nounou</span>}
+          </span>
           {event.note && <span className="event-note">{event.note}</span>}
         </span>
         <Icon.ChevronRight size={18} />
