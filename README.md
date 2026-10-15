@@ -103,7 +103,7 @@ Dans l'app, un bandeau « C'est bientôt l'heure de manger » s'affiche toujours
 1. Appliquer `0006_reminders.sql`.
 2. Générer une paire de clés VAPID (par ex. `npx web-push generate-vapid-keys`).
 3. Déployer la fonction `send-reminders` et lui donner les secrets `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (`mailto:votre@adresse`).
-4. Vercel : variable `VAPID_PUBLIC_KEY` (la clé **publique** seulement), puis redéployer.
+4. Clé **publique** : constante `DOLLO_VAPID_PUBLIC_KEY` de `vite.config.ts` (ou variable `VAPID_PUBLIC_KEY` sur Vercel, prioritaire). À changer si l'on régénère la paire.
 5. Planifier l'envoi toutes les 5 minutes : dans le SQL Editor, exécuter le bloc commenté à la fin de `0006_reminders.sql`, avec l'adresse du projet et la clé publique (anon / publishable).
 
 Sans les étapes 2 à 5, les rappels restent affichés dans l'app (bandeaux), sans notification.

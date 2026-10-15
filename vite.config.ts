@@ -3,6 +3,9 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// Clé publique des notifications de rappel (paire générée le 15/10/2026 ; la privée est dans Supabase → Edge Functions → Secrets).
+const DOLLO_VAPID_PUBLIC_KEY = 'BFQSFsc4etJQJ2zMb1hTzHXFk5Y2flpVZNJTbxk3oSROGGUT8O5U6Yy5fhogWgLbQL9WcFl3zwlRPaCTiPJ8NxQ';
+
 /**
  * Garde-fou : la valeur injectée dans le bundle est lisible par tous les visiteurs. Si on y colle par erreur la clé
  * SECRÈTE (`sb_secret_…` ou l'ancienne `service_role`, qui contourne toute la sécurité de la base), le build s'arrête.
@@ -97,7 +100,8 @@ export default defineConfig(({ mode }) => {
       __SUPABASE_URL__: JSON.stringify(normalizeSupabaseUrl(pick('VITE_SUPABASE_URL', 'SUPABASE_URL'))),
       __SUPABASE_ANON_KEY__: JSON.stringify(publicKey),
       // Publique par conception (la clé PRIVÉE n'existe que dans les secrets de la fonction send-reminders).
-      __VAPID_PUBLIC_KEY__: JSON.stringify(pick('VITE_VAPID_PUBLIC_KEY', 'VAPID_PUBLIC_KEY').trim()),
+      // Écrite ici pour ne dépendre d'aucun réglage Vercel ; une variable d'environnement la remplace si besoin.
+      __VAPID_PUBLIC_KEY__: JSON.stringify((pick('VITE_VAPID_PUBLIC_KEY', 'VAPID_PUBLIC_KEY') || DOLLO_VAPID_PUBLIC_KEY).trim()),
     },
     test: { environment: 'node', include: ['src/**/*.test.ts'], setupFiles: ['src/test-setup.ts'] },
   };
