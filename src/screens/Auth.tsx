@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { authErrorInUrl, supabase } from '../data/supabase';
 import { errorMessage } from '../data/store';
 import { translateAuthError } from '../lib/authErrors';
+import { attributionMetadata, readAttribution } from '../lib/utm';
 
 type Mode = 'signup' | 'signin' | 'forgot';
 
@@ -73,7 +74,11 @@ export function AuthScreen() {
         if (err) throw err;
         return; // La session est reprise par App via onAuthStateChange.
       }
-      const { data, error: err } = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: redirectTo() } });
+      const { data, error: err } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { emailRedirectTo: redirectTo(), data: attributionMetadata(readAttribution()) },
+      });
       if (err) throw err;
       if (data.session) return;
       // Adresse déjà inscrite : Supabase ne renvoie ni erreur ni e-mail, mais un utilisateur sans identité.
