@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { usePremium } from '../components/premium';
 import { errorMessage, type Store } from '../data/store';
 import type { Baby } from '../lib/types';
 import { dayKey } from '../lib/time';
@@ -17,10 +18,13 @@ export function Onboarding({ store, first, onDone, onCancel }: Props) {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const premium = usePremium();
 
   const create = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return setError('Indiquez le prénom de bébé.');
+    // Un bébé gratuit ; les suivants avec Dollo+ (rejoindre le bébé d'un autre parent reste gratuit).
+    if (!first && !premium.require('babies')) return;
     setBusy(true);
     setError(null);
     try {

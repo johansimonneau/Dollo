@@ -10,6 +10,8 @@ import { EventSheet, type EventData } from './components/EventSheet';
 import { Icon } from './components/icons';
 import { BottleSheet, DiaperSheet, MedSheet, PumpSheet, TempSheet, type MilkStorage, type RecentMed } from './components/QuickSheets';
 import { MilkStock } from './components/MilkStock';
+import { usePremium } from './components/premium';
+import { NannyLocked, PlusNudge } from './components/PlusCards';
 import { useToast } from './components/toast';
 import { errorMessage, type Store } from './data/store';
 import { DIAPER_LABEL, fmtTemp, SIDE_LABEL } from './lib/labels';
@@ -61,7 +63,10 @@ const NANNY_DAYS = 2;
 
 export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBabyUpdated, onAddBaby, onSignOut }: Props) {
   const toast = useToast();
+  const premium = usePremium();
   const nanny = baby.role === 'nanny';
+  // Famille sans Dollo+ : la base ne renvoie plus rien à la nounou (migration 0010).
+  const nannyLocked = nanny && !premium.has('nanny');
   const tabs = nanny ? TABS.filter((t) => t.id !== 'stats') : TABS;
   // Hors ligne : saisies en attente d'envoi, et saisies refusées au retour du réseau.
   const [sync, setSync] = useState<SyncState>(() => ('syncState' in store ? (store as OfflineStore).syncState() : { pending: 0, offline: false }));
@@ -438,7 +443,9 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
       )}
 
       <main className="content" aria-busy={loading}>
-        {tab === 'today' && (
+        {nannyLocked && <NannyLocked babyName={baby.name} onSignOut={onSignOut} />}
+        {!nannyLocked && tab === 'today' && !nanny && <PlusNudge now={now} />}
+        {!nannyLocked && tab === 'today' && (
           <Today
             events={events}
             now={now}
@@ -461,7 +468,7 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
             }}
           />
         )}
-        {tab === 'journal' && (
+        {!nannyLocked && tab === 'journal' && (
           <Journal
             events={events}
             now={now}
@@ -471,10 +478,10 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
             nannyIds={nannyIds}
           />
         )}
-        {tab === 'stats' && (
+        {!nannyLocked && tab === 'stats' && (
           <StatsTabs store={store} baby={baby} events={events} now={now} onBabyUpdated={onBabyUpdated} onVaccinesChanged={() => setVaxVersion((v) => v + 1)} />
         )}
-        {tab === 'settings' && (
+        {!nannyLocked && tab === 'settings' && (
           <Settings
             nanny={nanny}
             reminderPrefs={reminderPrefs}
@@ -491,18 +498,26 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
         )}
       </main>
 
-      <nav className="tabbar" aria-label="Navigation principale">
-        {tabs.map(({ id, label, icon: I }) => (
-          <button key={id} type="button" className="tab" aria-current={tab === id ? 'page' : undefined} onClick={() => setTab(id)}>
-            <I size={24} />
-            <span>{label}</span>
-          </button>
-        ))}
-      </nav>
+      {!nannyLocked && (
+        <nav className="tabbar" aria-label="Navigation principale">
+          {tabs.map(({ id, label, icon: I }) => (
+            <button key={id} type="button" className="tab" aria-current={tab === id ? 'page' : undefined} onClick={() => setTab(id)}>
+              <I size={24} />
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
 
       {sheet?.type === 'diaper' && <DiaperSheet onSave={(t, w, n) => void saveDiaper(t, w, n)} onClose={closeSheet} />}
       {sheet?.type === 'bottle' && <BottleSheet defaultMl={readLastMl()} onSave={(ml, w, n) => void saveBottle(ml, w, n)} onClose={closeSheet} />}
-      {sheet?.type === 'pump' && <PumpSheet onSave={(...a) => void savePump(...a)} onClose={closeSheet} />}
+      {sheet?.type === 'pump' && (
+        <PumpSheet
+          onSave={(...a) => void savePump(...a)}
+          onClose={closeSheet}
+          onLockedStock={premium.has('milk') ? undefined : () => premium.openPaywall('milk')}
+        />
+      )}
       {sheet?.type === 'milk' && (
         <MilkStock bags={milkBags} now={now} onGive={giveMilk} onThaw={thawMilk} onDiscard={discardMilk} onClose={closeSheet} />
       )}

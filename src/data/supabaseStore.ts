@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Baby, BabyEvent, DiaperType, EventKind, Invitation, InviteRole, Measurement, Member, MilkBag, NewEvent, NewMeasurement, PumpSide, Role } from '../lib/types';
 import { DEFAULT_PREFS } from '../../supabase/functions/_shared/reminders';
+import { toBilling, UNLOCKED, type BillingRow, type PaidPlan } from '../lib/billing';
 import { isNetworkFailure, NetworkError, StoreError, type BabyInput, type Store } from './store';
 
 interface BabyRow {
@@ -161,6 +162,7 @@ const DB_MESSAGES: [string, string][] = [
   ['forbidden', "Vous n'avez pas le droit de faire cela."],
   ['invalid_role', "Rôle d'invitation inconnu."],
   ['not_a_member', "Cette personne n'a pas (ou plus) accès à ce bébé."],
+  ['premium_required', 'Cette fonction fait partie de Dollo+.'],
   // Migration oubliée : PostgREST ne trouve pas la fonction, la table ou la colonne.
   ['in the schema cache', "La base n'est pas à jour : appliquez les migrations Supabase (voir le README)."],
   ['could not find the function', "La base n'est pas à jour : appliquez les migrations Supabase (voir le README)."],
@@ -171,6 +173,29 @@ function fail(error: { message: string; code?: string }, fallback: string): neve
   const m = error.message.toLowerCase();
   const known = DB_MESSAGES.find(([needle]) => m.includes(needle));
   throw new StoreError(known ? known[1] : error.message || fallback);
+}
+
+/** Erreurs renvoyées par la fonction `billing` (supabase/functions/billing). */
+const BILLING_MESSAGES: Record<string, string> = {
+  already_premium: 'Vous avez déjà Dollo+. Changez de formule depuis Réglages → Dollo+ → Gérer mon abonnement.',
+  billing_not_configured: "Le paiement n'est pas encore ouvert. Réessayez un peu plus tard.",
+  no_customer: 'Aucun abonnement à gérer sur ce compte.',
+  not_authenticated: 'Session expirée : reconnectez-vous.',
+};
+
+/** Appelle la fonction `billing` et renvoie l'adresse Stripe à ouvrir. */
+async function billingUrl(client: SupabaseClient, body: Record<string, string>): Promise<string> {
+  const { data, error } = await client.functions.invoke('billing', { body });
+  if (error) {
+    // Erreur HTTP : le détail est dans le corps de la réponse ({ error: 'already_premium' }).
+    const context = (error as { context?: Response }).context;
+    const detail = context && typeof context.json === 'function' ? ((await context.json().catch(() => null)) as { error?: string } | null)?.error : undefined;
+    if (!detail && isNetworkFailure(error.message)) throw new NetworkError();
+    throw new StoreError((detail && BILLING_MESSAGES[detail]) || 'Paiement indisponible pour le moment. Réessayez dans un instant.');
+  }
+  const url = (data as { url?: string } | null)?.url;
+  if (!url) throw new StoreError('Paiement indisponible pour le moment. Réessayez dans un instant.');
+  return url;
 }
 
 export function createSupabaseStore(client: SupabaseClient): Store {
@@ -437,6 +462,22 @@ export function createSupabaseStore(client: SupabaseClient): Store {
         fail(error, 'Enregistrement impossible.');
       }
       return toEvent(data as EventRow);
+    },
+
+    async getBilling() {
+      const { data, error } = await client.rpc('billing_status');
+      if (!error) return toBilling((data ?? {}) as BillingRow);
+      // Base sans la migration 0010 : Dollo+ n'existe pas encore, tout reste ouvert.
+      if (/could not find the function|schema cache/i.test(error.message)) return UNLOCKED;
+      fail(error, 'Chargement de Dollo+ impossible.');
+    },
+
+    startCheckout(plan: PaidPlan) {
+      return billingUrl(client, { action: 'checkout', plan });
+    },
+
+    openBillingPortal() {
+      return billingUrl(client, { action: 'portal' });
     },
 
     async updateEvent(id, patch) {

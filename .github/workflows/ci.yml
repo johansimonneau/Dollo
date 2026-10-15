@@ -40,7 +40,7 @@ jobs:
           PGURL: postgresql://postgres:postgres@localhost:5432
 
   reminders:
-    name: Fonction rappels (envoi des notifications)
+    name: Fonctions serveur (rappels, Dollo+)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -49,6 +49,11 @@ jobs:
           deno-version: v2.x
       - name: Certificat de test (faux service push en HTTPS)
         run: openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -keyout /tmp/key.pem -out /tmp/cert.pem -days 1 -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost"
+      - name: "Fonctions Dollo+ (paiement Stripe, webhook) : vérification des types"
+        working-directory: supabase/functions
+        run: |
+          (cd billing && deno check --config deno.json index.ts)
+          (cd billing-webhook && deno check --config deno.json index.ts)
       - name: Envoi de bout en bout (faux Supabase + faux service push)
         working-directory: supabase/functions/send-reminders
         # Le certificat de test est AJOUTÉ aux autorités de confiance (on ne désactive pas la vérification TLS).

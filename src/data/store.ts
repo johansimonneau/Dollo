@@ -1,4 +1,5 @@
 import type { ReminderPrefs } from '../../supabase/functions/_shared/reminders';
+import type { BillingStatus, PaidPlan } from '../lib/billing';
 import type { Baby, BabyEvent, Invitation, InviteRole, Measurement, Member, MilkBag, NewEvent, NewMeasurement, NewMilkBag, Vaccination } from '../lib/types';
 
 /** Abonnement Web Push d'un appareil (PushSubscription.toJSON()). */
@@ -64,6 +65,12 @@ export interface Store {
   addMilkBag(bag: NewMilkBag): Promise<MilkBag>;
   /** Décongeler, utiliser, jeter, corriger le volume… */
   updateMilkBag(id: string, patch: Partial<Pick<MilkBag, 'volumeMl' | 'storage' | 'storedAt' | 'usedAt' | 'discardedAt' | 'note'>>): Promise<MilkBag>;
+  /** Dollo+ : état de l'utilisateur et bébés couverts (tout ouvert en mode local ou sans la migration 0010). */
+  getBilling(): Promise<BillingStatus>;
+  /** Adresse de la page de paiement Stripe pour cette formule. */
+  startCheckout(plan: PaidPlan): Promise<string>;
+  /** Adresse du portail Stripe (moyen de paiement, factures, résiliation). */
+  openBillingPortal(): Promise<string>;
   listEvents(babyId: string, sinceIso: string): Promise<BabyEvent[]>;
   /** `id` : identifiant choisi par l'appareil (saisie hors ligne rejouée plus tard sans doublon). */
   addEvent(event: NewEvent, id?: string): Promise<BabyEvent>;

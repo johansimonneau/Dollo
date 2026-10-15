@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { errorMessage, type Store } from '../data/store';
 import { DAY } from '../lib/time';
 import type { Baby, Invitation, InviteRole } from '../lib/types';
+import { PlusTag, usePremium } from './premium';
 import { useToast } from './toast';
 
 interface Props {
@@ -48,6 +49,7 @@ export function invitationMessage(babyName: string, email: string, appUrl: strin
  */
 export function InviteByEmail({ store, baby, now }: Props) {
   const toast = useToast();
+  const premium = usePremium();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<InviteRole>('parent');
   const [busy, setBusy] = useState(false);
@@ -123,8 +125,8 @@ export function InviteByEmail({ store, baby, now }: Props) {
         <button type="button" aria-pressed={role === 'parent'} onClick={() => setRole('parent')}>
           Parent
         </button>
-        <button type="button" aria-pressed={role === 'nanny'} onClick={() => setRole('nanny')}>
-          Nounou
+        <button type="button" aria-pressed={role === 'nanny'} onClick={() => premium.require('nanny') && setRole('nanny')}>
+          Nounou {!premium.has('nanny') && <PlusTag />}
         </button>
       </div>
       <form onSubmit={submit} className="inline-form" aria-label="Inviter par e-mail">

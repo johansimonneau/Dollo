@@ -3,6 +3,7 @@ import { DIAPER_CHOICES, FEED_CHOICES, type ReminderPrefs } from '../../supabase
 import { errorMessage, type Store } from '../data/store';
 import { disablePush, enablePush, pushState, type PushState } from '../lib/push';
 import type { Baby } from '../lib/types';
+import { usePremium } from './premium';
 import { useToast } from './toast';
 
 interface Props {
@@ -20,6 +21,7 @@ const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Euro
 /** Réglages de rappels (repas, couche, nuit) et activation des notifications sur ce téléphone. */
 export function RemindersSettings({ store, baby, prefs, onPrefsChange }: Props) {
   const toast = useToast();
+  const premium = usePremium();
   const [push, setPush] = useState<PushState>('unsupported');
   const [busy, setBusy] = useState(false);
   useEffect(() => setPush(pushState()), []);
@@ -36,6 +38,7 @@ export function RemindersSettings({ store, baby, prefs, onPrefsChange }: Props) 
   };
 
   const enable = async () => {
+    if (!premium.require('push')) return;
     setBusy(true);
     try {
       const state = await enablePush(store);
@@ -153,15 +156,28 @@ export function RemindersSettings({ store, baby, prefs, onPrefsChange }: Props) 
         {push === 'granted' ? (
           <>
             <p className="hint">
-              <strong>Notifications activées sur ce téléphone.</strong> {anyReminder ? 'Vous serez prévenu même app fermée.' : 'Choisissez un rappel ci-dessus.'}
+              <strong>Notifications activées sur ce téléphone.</strong>{' '}
+              {!premium.has('push')
+                ? 'En pause : les notifications app fermée font partie de Dollo+.'
+                : anyReminder
+                  ? 'Vous serez prévenu même app fermée.'
+                  : 'Choisissez un rappel ci-dessus.'}
             </p>
+            {!premium.has('push') && (
+              <button type="button" className="btn primary" onClick={() => premium.openPaywall('push')}>
+                Réactiver avec Dollo+
+              </button>
+            )}
             <button type="button" className="link-btn" disabled={busy} onClick={() => void disable()}>
               Désactiver sur ce téléphone
             </button>
           </>
         ) : push === 'default' ? (
           <>
-            <p className="hint">Sans notification, les rappels s'affichent seulement quand l'app est ouverte.</p>
+            <p className="hint">
+              Sans notification, les rappels s'affichent seulement quand l'app est ouverte.
+              {!premium.has('push') && ' Les notifications app fermée font partie de Dollo+.'}
+            </p>
             <button type="button" className="btn primary" disabled={busy || store.mode !== 'cloud'} onClick={() => void enable()}>
               Activer les notifications
             </button>

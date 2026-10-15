@@ -1,4 +1,5 @@
 import { DEFAULT_PREFS, type ReminderPrefs } from '../../supabase/functions/_shared/reminders';
+import { UNLOCKED } from '../lib/billing';
 import type { Baby, BabyEvent, Measurement, MilkBag, NewEvent, Vaccination } from '../lib/types';
 import { StoreError, type BabyInput, type Store } from './store';
 
@@ -41,6 +42,17 @@ const notify = () => listeners.forEach((fn) => fn());
 export function createLocalStore(): Store {
   return {
     mode: 'local',
+
+    // Mode local : pas de compte, donc pas de paiement. Tout est ouvert.
+    async getBilling() {
+      return UNLOCKED;
+    },
+    async startCheckout() {
+      throw new StoreError('Dollo+ nécessite un compte en ligne.');
+    },
+    async openBillingPortal() {
+      throw new StoreError('Dollo+ nécessite un compte en ligne.');
+    },
 
     async listBabies() {
       return read().babies;

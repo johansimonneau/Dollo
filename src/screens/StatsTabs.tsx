@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { PlusTag, usePremium } from '../components/premium';
+import { LockedFeature } from '../components/PlusCards';
 import type { Store } from '../data/store';
 import type { Baby, BabyEvent } from '../lib/types';
 import { Growth } from './Growth';
@@ -17,6 +19,8 @@ interface Props {
 /** Onglet Stats : l'activité des 7 derniers jours, la croissance (courbes OMS) ou la santé (vaccins, fièvre, médicaments). */
 export function StatsTabs({ store, baby, events, now, onBabyUpdated, onVaccinesChanged }: Props) {
   const [view, setView] = useState<'activity' | 'growth' | 'health'>('activity');
+  const premium = usePremium();
+  const growth = premium.has('growth');
   return (
     <div className="screen">
       <div className="segmented stats-switch" role="group" aria-label="Statistiques">
@@ -24,14 +28,15 @@ export function StatsTabs({ store, baby, events, now, onBabyUpdated, onVaccinesC
           Activité
         </button>
         <button type="button" aria-pressed={view === 'growth'} onClick={() => setView('growth')}>
-          Croissance
+          Croissance {!growth && <PlusTag />}
         </button>
         <button type="button" aria-pressed={view === 'health'} onClick={() => setView('health')}>
           Santé
         </button>
       </div>
       {view === 'activity' && <Stats events={events} now={now} />}
-      {view === 'growth' && <Growth store={store} baby={baby} now={now} onBabyUpdated={onBabyUpdated} />}
+      {view === 'growth' && !growth && <LockedFeature feature="growth" />}
+      {view === 'growth' && growth && <Growth store={store} baby={baby} now={now} onBabyUpdated={onBabyUpdated} />}
       {view === 'health' && <Health store={store} baby={baby} events={events} now={now} onVaccinesChanged={onVaccinesChanged} />}
     </div>
   );

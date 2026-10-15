@@ -267,4 +267,17 @@ describe('supabaseStore', () => {
       expect(await createSupabaseStore(client).acceptInvitations()).toEqual([]);
     });
   });
+
+  it('Dollo+ : lit billing_status(), et tout reste ouvert sur une base sans la migration 0010', async () => {
+    const ok = fakeClient({ data: { premium: true, plan: 'gift', premium_baby_ids: ['b1'] } });
+    expect(await createSupabaseStore(ok.client).getBilling()).toMatchObject({ enforced: true, premium: true, plan: 'gift', premiumBabyIds: ['b1'] });
+    expect(ok.calls.rpc?.[0]).toBe('billing_status');
+    const old = fakeClient({ error: { message: 'Could not find the function public.billing_status without parameters in the schema cache' } });
+    expect(await createSupabaseStore(old.client).getBilling()).toMatchObject({ enforced: false, premium: true });
+  });
+
+  it('Dollo+ : message clair quand la base refuse une fonction payante', async () => {
+    const { client } = fakeClient({ error: { message: 'premium_required' } });
+    await expect(createSupabaseStore(client).createBaby({ name: 'Jade', birthDate: null })).rejects.toThrow('Dollo+');
+  });
 });

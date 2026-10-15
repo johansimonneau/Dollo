@@ -237,10 +237,12 @@ export type MilkStorage = 'fridge' | 'freezer';
 interface PumpProps {
   onSave: (side: PumpSide, minutes: number | null, ml: number, storage: MilkStorage | null, when: When, note: string | null) => void;
   onClose: () => void;
+  /** Stock de lait réservé à Dollo+ : appelé au lieu de choisir le frigo / le congélateur. */
+  onLockedStock?: () => void;
 }
 
 /** Tirage : sein(s), durée (facultative), quantité, et mise en stock directe (frigo / congélateur). */
-export function PumpSheet({ onSave, onClose }: PumpProps) {
+export function PumpSheet({ onSave, onClose, onLockedStock }: PumpProps) {
   const [when, setWhen] = useState<When>(NOW);
   const [side, setSide] = useState<PumpSide>('both');
   const [minutes, setMinutes] = useState<number | null>(null);
@@ -308,13 +310,14 @@ export function PumpSheet({ onSave, onClose }: PumpProps) {
           <button type="button" aria-pressed={storage === null} onClick={() => setStorage(null)}>
             Non
           </button>
-          <button type="button" aria-pressed={storage === 'fridge'} onClick={() => setStorage('fridge')}>
+          <button type="button" aria-pressed={storage === 'fridge'} onClick={() => (onLockedStock ? onLockedStock() : setStorage('fridge'))}>
             Frigo
           </button>
-          <button type="button" aria-pressed={storage === 'freezer'} onClick={() => setStorage('freezer')}>
+          <button type="button" aria-pressed={storage === 'freezer'} onClick={() => (onLockedStock ? onLockedStock() : setStorage('freezer'))}>
             Congélateur
           </button>
         </div>
+        {onLockedStock && <span className="hint">Le stock de lait (dates limites, alertes) fait partie de Dollo+.</span>}
         {storage && (
           <span className="hint">{storage === 'fridge' ? 'À utiliser sous 48 h (au fond du réfrigérateur).' : 'À utiliser sous 4 mois (−18 °C).'}</span>
         )}
