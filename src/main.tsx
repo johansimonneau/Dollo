@@ -1,5 +1,6 @@
 import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
+import { Analytics } from '@vercel/analytics/react';
 import App from './App';
 import { readRouteEnv, wantsLanding } from './landing/route';
 import { setupUpdates } from './lib/updates';
@@ -21,5 +22,6 @@ createRoot(document.getElementById('root')!).render(
     ) : (
       <App />
     )}
+    <Analytics />
   </StrictMode>,
 );
