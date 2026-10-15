@@ -3,6 +3,7 @@ import {
   checkoutParams,
   entitlementFromLifetime,
   entitlementFromSubscription,
+  invoiceSubscriptionId,
   planForPrice,
   resolveAppUrl,
   stripeSignature,
@@ -81,6 +82,14 @@ describe('webhook Stripe : droits', () => {
   });
 });
 
+describe('webhook Stripe : factures', () => {
+  it('retrouve l’abonnement d’une facture (API récente et ancienne)', () => {
+    expect(invoiceSubscriptionId({ parent: { subscription_details: { subscription: 'sub_1' } } })).toBe('sub_1');
+    expect(invoiceSubscriptionId({ subscription: { id: 'sub_2' } })).toBe('sub_2');
+    expect(invoiceSubscriptionId({})).toBeNull();
+  });
+});
+
 describe('paiement : session Checkout', () => {
   const base = { priceId: 'price_y', customer: 'cus_1', userId: 'u1', appUrl: 'https://dollo.app' };
 
@@ -92,6 +101,20 @@ describe('paiement : session Checkout', () => {
     expect(p.client_reference_id).toBe('u1');
     expect(p.success_url).toBe('https://dollo.app/?app&billing=success');
     expect(p.locale).toBe('fr');
+  });
+
+  it('jamais de payment_method_types (moyens de paiement gérés dans Stripe), parcours repéré', () => {
+    const p = checkoutParams({ ...base, plan: 'monthly' });
+    expect(Object.keys(p).some((k) => k.startsWith('payment_method_types'))).toBe(false);
+    expect(p.integration_identifier).toMatch(/-[a-z]{8}$/);
+  });
+
+  it('TVA Stripe Tax seulement sur demande, calculée sur l’adresse saisie au paiement', () => {
+    expect(checkoutParams({ ...base, plan: 'yearly' })['automatic_tax[enabled]']).toBeUndefined();
+    const p = checkoutParams({ ...base, plan: 'yearly', automaticTax: true });
+    expect(p['automatic_tax[enabled]']).toBe('true');
+    expect(p['customer_update[address]']).toBe('auto');
+    expect(p.billing_address_collection).toBe('required');
   });
 
   it('à vie : paiement unique, pas d’essai', () => {

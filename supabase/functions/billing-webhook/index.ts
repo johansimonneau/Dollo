@@ -1,12 +1,14 @@
 // Webhook Stripe : active, renouvelle ou retire Dollo+ (table entitlements). Seule écriture des droits.
 // Déployée SANS vérification JWT (Stripe n'a pas de compte Supabase) : l'authenticité vient de la signature Stripe.
 //   supabase functions deploy billing-webhook --no-verify-jwt
-// Événements à cocher dans Stripe : checkout.session.completed, checkout.session.async_payment_succeeded,
-// customer.subscription.created / updated / deleted, charge.refunded.
+// Événements : checkout.session.completed / async_payment_succeeded / async_payment_failed,
+// customer.subscription.created / updated / deleted / paused / resumed, invoice.paid, invoice.payment_failed,
+// charge.refunded (scripts/stripe-setup.mjs crée le point de terminaison avec cette liste).
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import {
   entitlementFromLifetime,
   entitlementFromSubscription,
+  invoiceSubscriptionId,
   verifyStripeSignature,
   type EntitlementRow,
   type PriceIds,
@@ -68,6 +70,17 @@ Deno.serve(async (req) => {
       case 'customer.subscription.resumed':
         await syncSubscription(obj.id as string, (obj.metadata as Record<string, string> | undefined)?.user_id ?? null);
         break;
+      case 'checkout.session.async_payment_failed':
+        // Paiement différé refusé : rien n'avait été accordé.
+        console.warn(`Paiement refusé pour la session ${obj.id}`);
+        break;
+      case 'invoice.paid':
+      case 'invoice.payment_failed': {
+        // Renouvellement payé (nouvelle date de fin) ou refusé (past_due, relances Stripe) : on relit l'abonnement.
+        const subscriptionId = invoiceSubscriptionId(obj as Parameters<typeof invoiceSubscriptionId>[0]);
+        if (subscriptionId) await syncSubscription(subscriptionId, null);
+        break;
+      }
       case 'charge.refunded': {
         // Achat à vie remboursé en totalité : Dollo+ est retiré.
         if (!obj.refunded || !obj.payment_intent) break;

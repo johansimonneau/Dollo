@@ -107,25 +107,34 @@ Projet Vite standard : sur Vercel, framework *Vite*, commande `npm run build`, d
 **Verrous dans la base** (pas seulement dans l'interface) : invitation et accès de la nounou, création d'un 2e bébé, envoi des notifications (`send-reminders` ne notifie que les bébés Dollo+). Les autres fonctions sont verrouillées dans l'app. Quand Dollo+ s'arrête, **aucune donnée n'est supprimée** : tout revient dès la réactivation. Sans la migration 0010, ou en mode local, tout reste ouvert.
 
 ### Mise en service du paiement (Stripe, une fois)
-1. **Stripe → Produits** : un produit « Dollo+ » avec trois prix en EUR : 3,99 € *récurrent mensuel*, 29,99 € *récurrent annuel*, 49,99 € *paiement unique*. Les prix affichés dans l'app sont dans `src/lib/billing.ts` (`PRICES`) : gardez-les identiques.
-2. **Stripe → Paramètres → Portail client** : activez-le (résiliation, changement de carte, factures, passage mensuel ↔ annuel).
-3. Déployez les deux fonctions :
+1. Déployez les deux fonctions :
    ```bash
    supabase functions deploy billing
    supabase functions deploy billing-webhook --no-verify-jwt
    ```
-4. **Stripe → Développeurs → Webhooks** : point de terminaison `https://xxxx.supabase.co/functions/v1/billing-webhook`, événements `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `charge.refunded`.
-5. **Supabase → Edge Functions → Secrets** :
+2. **Clé API** : dans Stripe → Développeurs → Clés API, créez une **clé restreinte** (`rk_test_…`, puis `rk_live_…`) plutôt que la clé secrète complète. Elle n'a besoin que de : *Customers* (écriture), *Checkout Sessions* (écriture), *Customer portal* (écriture), *Subscriptions* (lecture), *Products*, *Prices*, *Webhook Endpoints* (écriture, uniquement pour le script ci-dessous). Une clé ne va jamais dans le code ni dans Vercel : seulement dans les secrets Supabase.
+3. **Préparez le compte Stripe en une commande** (produits « Dollo+ » 3,99 €/mois et 29,99 €/an, « Dollo+ à vie » 49,99 €, prix TTC, portail client, webhook) :
+   ```bash
+   STRIPE_SECRET_KEY=rk_test_… SUPABASE_URL=https://xxxx.supabase.co node scripts/stripe-setup.mjs
+   ```
+   Le script affiche la commande `supabase secrets set …` avec les identifiants de prix, du portail et le secret du webhook. Il se relance sans risque. Les prix affichés dans l'app sont dans `src/lib/billing.ts` (`PRICES`) : gardez-les identiques.
+4. **Supabase → Edge Functions → Secrets** (ou la commande affichée par le script) :
 
    | Secret | Valeur |
    | --- | --- |
-   | `STRIPE_SECRET_KEY` | clé secrète Stripe (`sk_live_…`, ou `sk_test_…` pour essayer) |
+   | `STRIPE_SECRET_KEY` | clé restreinte (`rk_…`) ou secrète (`sk_…`) |
    | `STRIPE_WEBHOOK_SECRET` | secret de signature du webhook (`whsec_…`) |
    | `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY`, `STRIPE_PRICE_LIFETIME` | identifiants des trois prix (`price_…`) |
+   | `STRIPE_PORTAL_CONFIGURATION` | portail client créé par le script (`bpc_…`) ; sans lui, celui par défaut du tableau de bord |
    | `APP_URL` | adresse de l'app (`https://…`), où Stripe ramène après le paiement. Plusieurs adresses séparées par des virgules (préproduction). |
    | `STRIPE_TRIAL_DAYS` | facultatif : jours d'essai gratuit sur un premier abonnement (ex. `7`) |
+   | `STRIPE_AUTOMATIC_TAX` | facultatif : `true` pour que Stripe Tax calcule la TVA (voir ci-dessous) |
 
-6. Testez en mode test Stripe (carte `4242 4242 4242 4242`) : Réglages → Dollo+ → payer → retour dans l'app, Dollo+ actif en quelques secondes.
+5. Testez en mode test (carte `4242 4242 4242 4242`, échec : `4000 0000 0000 0341`) : Réglages → Dollo+ → payer → retour dans l'app, Dollo+ actif en quelques secondes. Puis refaites les étapes 2 à 4 en mode live (`node scripts/stripe-setup.mjs --live`).
+
+**TVA.** Les prix sont TTC (`tax_behavior: inclusive`). N'activez `STRIPE_AUTOMATIC_TAX=true` qu'**après** avoir renseigné l'adresse du siège et ajouté votre immatriculation (France, et le guichet unique OSS pour les autres pays de l'UE) dans Stripe → Taxes : sans immatriculation active, Stripe ne collecte rien et ne signale aucune erreur. Faites valider vos obligations par votre comptable.
+
+**Sécurité.** Activez la double authentification par clé d'accès ou application (pas par SMS) sur le compte Stripe. Les fonctions appellent l'API Stripe avec une version figée (`2026-08-26.dahlia`, `supabase/functions/_shared/stripe.ts`) ; le webhook vérifie la signature de chaque événement. Avant la mise en ligne : [liste de contrôle Stripe](https://docs.stripe.com/get-started/checklist/go-live.md).
 
 Remboursement d'un achat à vie (total) : Dollo+ est retiré automatiquement. Offrir Dollo+ à quelqu'un (SQL Editor) : `insert into entitlements (user_id, plan, status, current_period_end) values ('<id du compte>', 'gift', 'active', now() + interval '1 year');`.
 

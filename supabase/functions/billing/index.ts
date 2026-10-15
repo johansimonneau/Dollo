@@ -51,6 +51,8 @@ Deno.serve(async (req) => {
       const portal = await stripeApi<{ url: string }>(env('STRIPE_SECRET_KEY'), 'billing_portal/sessions', {
         customer: data.stripe_customer_id as string,
         return_url: `${appUrl}/?app`,
+        // Configuration créée par scripts/stripe-setup.mjs (sinon : celle par défaut du tableau de bord).
+        ...(env('STRIPE_PORTAL_CONFIGURATION') ? { configuration: env('STRIPE_PORTAL_CONFIGURATION') } : {}),
       });
       return json({ url: portal.url });
     }
@@ -78,6 +80,7 @@ Deno.serve(async (req) => {
         appUrl,
         // Essai gratuit (facultatif) : seulement pour un premier abonnement.
         trialDays: (paid ?? []).length === 0 ? Number(env('STRIPE_TRIAL_DAYS')) || 0 : 0,
+        automaticTax: env('STRIPE_AUTOMATIC_TAX') === 'true',
       }),
     );
     return json({ url: session.url });

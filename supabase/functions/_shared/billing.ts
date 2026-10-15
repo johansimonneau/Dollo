@@ -78,6 +78,17 @@ export function entitlementFromLifetime(session: StripeCheckoutSession, userId: 
   };
 }
 
+export const CHECKOUT_INTEGRATION_ID = 'dollo-plus-checkout-qhvkrnwz';
+
+/** Abonnement concerné par une facture (API 2025+ : `parent.subscription_details`, avant : `subscription`). */
+export function invoiceSubscriptionId(invoice: {
+  subscription?: string | { id: string } | null;
+  parent?: { subscription_details?: { subscription?: string | { id: string } | null } | null } | null;
+}): string | null {
+  const s = invoice.parent?.subscription_details?.subscription ?? invoice.subscription ?? null;
+  return s ? (typeof s === 'string' ? s : s.id) : null;
+}
+
 /** Paramètres d'une session Checkout (format attendu par l'API Stripe, en x-www-form-urlencoded). */
 export function checkoutParams(opts: {
   plan: PaidPlan;
@@ -86,6 +97,8 @@ export function checkoutParams(opts: {
   userId: string;
   appUrl: string;
   trialDays?: number;
+  /** TVA par Stripe Tax : seulement quand une immatriculation est active dans Stripe (sinon rien n'est collecté). */
+  automaticTax?: boolean;
 }): Record<string, string> {
   const p: Record<string, string> = {
     mode: opts.plan === 'lifetime' ? 'payment' : 'subscription',
@@ -99,7 +112,15 @@ export function checkoutParams(opts: {
     cancel_url: `${opts.appUrl}/?app&billing=cancel`,
     allow_promotion_codes: 'true',
     locale: 'fr',
+    // Repère du parcours dans le tableau de bord Stripe (comparaison des parcours de paiement).
+    integration_identifier: CHECKOUT_INTEGRATION_ID,
   };
+  if (opts.automaticTax) {
+    p['automatic_tax[enabled]'] = 'true';
+    // Client créé avant le paiement, sans adresse : la TVA est calculée sur l'adresse saisie au paiement.
+    p['customer_update[address]'] = 'auto';
+    p.billing_address_collection = 'required';
+  }
   if (opts.plan === 'lifetime') {
     p['payment_intent_data[metadata][user_id]'] = opts.userId;
   } else {
