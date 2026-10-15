@@ -100,9 +100,9 @@ Projet Vite standard : sur Vercel, framework *Vite*, commande `npm run build`, d
 
 **Prix** : 3,99 €/mois, 29,99 €/an (−37 %), ou 49,99 € à vie. Un paiement couvre **toute la famille** : un bébé est Dollo+ dès qu'un de ses parents l'est (l'autre parent et la nounou en profitent ; l'abonnement d'une nounou ne compte pas).
 
-**Lancement** : la migration `0010_billing.sql` offre **3 mois de Dollo+** à tous les comptes existants à la date où elle est appliquée. Appliquez-la le jour du lancement.
+**Lancement** : la migration `0010_billing.sql` offre **14 jours de Dollo+** à tous les comptes existants à la date où elle est appliquée. Appliquez-la le jour du lancement.
 
-**Dans l'app** : Réglages → Dollo+ (formule, renouvellement, portail Stripe pour changer de carte ou résilier). Chaque fonction verrouillée porte un repère « Dollo+ » et ouvre la présentation de l'offre, centrée sur cette fonction. Pendant les 14 derniers jours de la période offerte, puis 30 jours après la fin, un bandeau sur *Aujourd'hui* relance (masquable pour la journée). Au retour du paiement (`/?app&billing=success`), l'app attend l'activation et l'annonce. Cette adresse peut servir d'URL de conversion (pixel publicitaire, analytics).
+**Dans l'app** : Réglages → Dollo+ (formule, renouvellement, portail Stripe pour changer de carte ou résilier). Chaque fonction verrouillée porte un repère « Dollo+ » et ouvre la présentation de l'offre, centrée sur cette fonction. Pendant les 5 derniers jours de la période offerte, puis 30 jours après la fin, un bandeau sur *Aujourd'hui* relance (masquable pour la journée). Au retour du paiement (`/?app&billing=success`), l'app attend l'activation et l'annonce. Cette adresse peut servir d'URL de conversion (pixel publicitaire, analytics).
 
 **Verrous dans la base** (pas seulement dans l'interface) : invitation et accès de la nounou, création d'un 2e bébé, envoi des notifications (`send-reminders` ne notifie que les bébés Dollo+). Les autres fonctions sont verrouillées dans l'app. Quand Dollo+ s'arrête, **aucune donnée n'est supprimée** : tout revient dès la réactivation. Sans la migration 0010, ou en mode local, tout reste ouvert.
 
@@ -127,7 +127,7 @@ Projet Vite standard : sur Vercel, framework *Vite*, commande `npm run build`, d
    | `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY`, `STRIPE_PRICE_LIFETIME` | identifiants des trois prix (`price_…`) |
    | `STRIPE_PORTAL_CONFIGURATION` | portail client créé par le script (`bpc_…`) ; sans lui, celui par défaut du tableau de bord |
    | `APP_URL` | adresse de l'app (`https://…`), où Stripe ramène après le paiement. Plusieurs adresses séparées par des virgules (préproduction). |
-   | `STRIPE_TRIAL_DAYS` | facultatif : jours d'essai gratuit sur un premier abonnement (ex. `7`) |
+   | `STRIPE_TRIAL_DAYS` | facultatif : jours d'essai gratuit sur un premier abonnement (ex. `7`, **14 au maximum**) |
    | `STRIPE_AUTOMATIC_TAX` | facultatif : `true` pour que Stripe Tax calcule la TVA (voir ci-dessous) |
 
 5. Testez en mode test (carte `4242 4242 4242 4242`, échec : `4000 0000 0000 0341`) : Réglages → Dollo+ → payer → retour dans l'app, Dollo+ actif en quelques secondes. Puis refaites les étapes 2 à 4 en mode live (`node scripts/stripe-setup.mjs --live`).

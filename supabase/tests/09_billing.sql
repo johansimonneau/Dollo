@@ -11,7 +11,7 @@ insert into auth.users (id, email, email_confirmed_at) values (:'eve', 'eve@exam
 -- 1. Cadeau de lancement pour les comptes existants
 select test_as(:'alice');
 select expect_count('compte existant : Dollo+ offert', $q$select count(*) from (select billing_status() s) x where (s->>'premium')::boolean and s->>'plan' = 'gift'$q$, 1);
-select expect_count('…pendant 3 mois', $q$select count(*) from entitlements where plan = 'gift' and current_period_end between now() + interval '89 days' and now() + interval '93 days'$q$, 1);
+select expect_count('…pendant 14 jours', $q$select count(*) from entitlements where plan = 'gift' and current_period_end between now() + interval '13 days 23 hours' and now() + interval '14 days 1 hour'$q$, 1);
 
 -- 2. Nouveau compte : gratuit
 select test_as(:'eve');

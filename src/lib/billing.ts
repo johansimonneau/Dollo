@@ -94,6 +94,9 @@ export function unlocked(b: BillingStatus, feature: Feature, babyId: string | nu
 
 const DAY = 86_400_000;
 
+/** Le bandeau de fin de période offerte apparaît ces derniers jours. */
+export const NUDGE_DAYS = 5;
+
 /** « 15 janv. 2027 » (date locale de fin de période). */
 export const fmtPeriodEnd = (iso: string) => fmtDate(dayKey(new Date(iso).getTime()));
 
@@ -103,12 +106,12 @@ export function daysLeft(b: BillingStatus, now: number): number | null {
   return Math.ceil((new Date(b.periodEnd).getTime() - now) / DAY);
 }
 
-/** Bandeau d'upsell sur « Aujourd'hui » : fin du cadeau de lancement (14 derniers jours) ou cadeau terminé depuis peu. */
+/** Bandeau d'upsell sur « Aujourd'hui » : fin des 14 jours offerts (5 derniers jours) ou période offerte terminée depuis peu. */
 export function giftNudge(b: BillingStatus, now: number): { kind: 'ending'; days: number } | { kind: 'ended' } | null {
   if (!b.enforced || b.plan !== 'gift') return null;
   const days = daysLeft(b, now);
   if (days === null) return null;
-  if (b.premium && days <= 14) return { kind: 'ending', days: Math.max(1, days) };
+  if (b.premium && days <= NUDGE_DAYS) return { kind: 'ending', days: Math.max(1, days) };
   if (!b.premium && days > -30) return { kind: 'ended' };
   return null;
 }

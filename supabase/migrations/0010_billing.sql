@@ -8,7 +8,7 @@
 -- nounou en profitent). Les droits sont écrits UNIQUEMENT par le webhook Stripe (service role) : un client ne peut ni
 -- en créer, ni en modifier.
 --
--- Comptes existants au moment de la migration : Dollo+ offert pendant 3 mois (appliquer le jour du lancement).
+-- Comptes existants au moment de la migration : Dollo+ offert pendant 14 jours (appliquer le jour du lancement).
 --
 -- Verrous posés dans la base (le reste est géré par l'app) :
 --   - inviter une nounou, et l'accès de la nounou lui-même ;
@@ -185,10 +185,10 @@ create trigger babies_premium_guard
   for each row execute function public.babies_premium_guard();
 
 ------------------------------------------------------------------------------
--- Lancement : 3 mois offerts à tous les comptes existants
+-- Lancement : 14 jours offerts à tous les comptes existants
 ------------------------------------------------------------------------------
 insert into public.entitlements (user_id, plan, status, current_period_end)
-select u.id, 'gift', 'active', now() + interval '3 months'
+select u.id, 'gift', 'active', now() + interval '14 days'
 from auth.users u;
 
 ------------------------------------------------------------------------------

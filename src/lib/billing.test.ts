@@ -40,9 +40,9 @@ describe('Dollo+ : bandeau de fin de période offerte', () => {
   const gift = (endInDays: number, premium = endInDays > 0) =>
     status({ premium, plan: 'gift', status: 'active', periodEnd: new Date(NOW + endInDays * DAY).toISOString() });
 
-  it('rien tant qu’il reste plus de 14 jours', () => expect(giftNudge(gift(30), NOW)).toBeNull());
-  it('compte à rebours sur les 14 derniers jours', () => {
-    expect(giftNudge(gift(14), NOW)).toEqual({ kind: 'ending', days: 14 });
+  it('rien tant qu’il reste plus de 5 jours', () => expect(giftNudge(gift(10), NOW)).toBeNull());
+  it('compte à rebours sur les 5 derniers jours', () => {
+    expect(giftNudge(gift(5), NOW)).toEqual({ kind: 'ending', days: 5 });
     expect(giftNudge(gift(0.2), NOW)).toEqual({ kind: 'ending', days: 1 });
   });
   it('période terminée : relance pendant 30 jours, puis plus rien', () => {

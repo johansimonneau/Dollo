@@ -44,7 +44,7 @@ export function PlusCard({ babyName, now }: { babyName: string; now: number }) {
 
 const DISMISS_KEY = 'dollo:plus-nudge';
 
-/** Bandeau sur « Aujourd'hui » : fin de la période offerte (14 derniers jours), puis période terminée. Masquable pour la journée. */
+/** Bandeau sur « Aujourd'hui » : fin de la période offerte (5 derniers jours), puis période terminée. Masquable pour la journée. */
 export function PlusNudge({ now }: { now: number }) {
   const { billing, openPaywall } = usePremium();
   const nudge = giftNudge(billing, now);

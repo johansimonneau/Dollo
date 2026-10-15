@@ -126,7 +126,8 @@ export function checkoutParams(opts: {
   } else {
     // Retrouvé dans chaque événement d'abonnement (renouvellement, résiliation), même sans la session d'origine.
     p['subscription_data[metadata][user_id]'] = opts.userId;
-    if (opts.trialDays && opts.trialDays > 0) p['subscription_data[trial_period_days]'] = String(Math.floor(opts.trialDays));
+    // 14 jours gratuits au maximum, quelle que soit la valeur de STRIPE_TRIAL_DAYS.
+    if (opts.trialDays && opts.trialDays > 0) p['subscription_data[trial_period_days]'] = String(Math.min(14, Math.floor(opts.trialDays)));
   }
   return p;
 }

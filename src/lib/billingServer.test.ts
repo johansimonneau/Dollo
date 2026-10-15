@@ -98,6 +98,7 @@ describe('paiement : session Checkout', () => {
     expect(p.mode).toBe('subscription');
     expect(p['subscription_data[metadata][user_id]']).toBe('u1');
     expect(p['subscription_data[trial_period_days]']).toBe('7');
+    expect(checkoutParams({ ...base, plan: 'yearly', trialDays: 90 })['subscription_data[trial_period_days]']).toBe('14');
     expect(p.client_reference_id).toBe('u1');
     expect(p.success_url).toBe('https://dollo.app/?app&billing=success');
     expect(p.locale).toBe('fr');
