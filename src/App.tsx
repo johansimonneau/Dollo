@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { ToastProvider } from './components/toast';
 import { createLocalStore } from './data/localStore';
 import { recoveryInUrl, supabase } from './data/supabase';
@@ -62,6 +63,7 @@ export default function App() {
             : null
         }
       />
+      <Analytics />
     </ToastProvider>
   );
 }
