@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { authErrorInUrl, supabase } from '../data/supabase';
 import { errorMessage } from '../data/store';
+import { trackConversion } from '../lib/analytics';
 import { translateAuthError } from '../lib/authErrors';
 import { attributionMetadata, readAttribution } from '../lib/utm';
 
@@ -80,7 +81,7 @@ export function AuthScreen() {
         options: { emailRedirectTo: redirectTo(), data: attributionMetadata(readAttribution()) },
       });
       if (err) throw err;
-      if (data.session) return;
+      if (data.session) return trackConversion({ name: 'sign_up' });
       // Adresse déjà inscrite : Supabase ne renvoie ni erreur ni e-mail, mais un utilisateur sans identité.
       if (data.user && data.user.identities?.length === 0) {
         setMode('signin');
@@ -89,6 +90,7 @@ export function AuthScreen() {
         return;
       }
       // Sinon, Supabase attend la confirmation de l'adresse.
+      trackConversion({ name: 'sign_up' });
       setPending(email.trim());
     });
   };

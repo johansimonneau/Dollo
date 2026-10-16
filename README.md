@@ -38,7 +38,7 @@ Sur [supabase.com](https://supabase.com) → *New project*. Choisissez une **ré
 > Utilisez un projet vierge, pas une base qui sert déjà à autre chose : la migration crée les tables `babies`, `baby_members`, `events` et `baby_invitations` dans le schéma `public`.
 
 ### 2. Créer les tables
-*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`, `0005_nanny.sql`, `0006_reminders.sql`, `0007_growth.sql`, `0008_health.sql`, `0009_milk.sql`, `0010_billing.sql`.
+*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`, `0005_nanny.sql`, `0006_reminders.sql`, `0007_growth.sql`, `0008_health.sql`, `0009_milk.sql`, `0010_billing.sql`, `0011_analytics.sql`.
 
 ### 3. Récupérer les deux clés publiques
 *Project Settings → API Keys* (ou *API*) :
@@ -201,6 +201,33 @@ Sans réseau (chambre sans signal, métro), Dollo s'ouvre avec les dernières do
 - **Aucune déconnexion** : la session et les données restent sur l'appareil d'une version à l'autre.
 - **Base et app compatibles dans les deux sens** : les migrations ajoutent sans casser, et l'app détecte une base pas encore migrée (repli automatique) — on peut publier l'app avant ou après la migration.
 - **Vérifications automatiques** (`.github/workflows/ci.yml`) sur chaque PR : types, tests unitaires, build, et toutes les migrations + suites de sécurité sur une base jetable. Une PR rouge ne doit pas être fusionnée.
+
+## Mesure des campagnes
+
+Objectif : savoir quelle campagne amène des **clients payants**, pas seulement des visites.
+
+**Dans l'app (Vercel Analytics → *Events*)** : 4 étapes, avec la campagne du dernier contact (UTM) rattachée automatiquement. Aucune donnée personnelle ni de santé n'est envoyée. Les événements personnalisés s'affichent avec un plan Vercel Pro.
+
+| Événement | Quand | Propriété |
+| --- | --- | --- |
+| `sign_up` | compte créé (avant la confirmation de l'e-mail) | – |
+| `baby_created` | bébé créé | `first` (premier bébé ou non) |
+| `checkout_started` | départ vers la page de paiement Stripe | `plan` |
+| `purchase` | retour de Stripe après paiement | – |
+
+**Dans la base (source de vérité)** : la migration `0011_analytics.sql` crée un schéma `analytics` **privé** (ni l'app ni l'API n'y ont accès). Les essais, premiers paiements et remboursements y sont relevés automatiquement à chaque écriture du webhook Stripe ; les renouvellements ne recomptent pas, et une erreur de mesure ne bloque jamais l'activation de Dollo+. Depuis *SQL Editor* :
+
+```sql
+select * from analytics.funnel_by_campaign;   -- inscrits → confirmés → activés → essais → clients → CA, par source / campagne
+select * from analytics.funnel_by_week;       -- même entonnoir par semaine d'inscription
+select * from analytics.user_journey;         -- un compte par ligne (dates, campagne, offre)
+select * from analytics.offline_conversions;  -- achats avec gclid / fbclid / ttclid : à importer comme conversions hors ligne
+```
+
+- **Attribution** : dernier contact avant l'inscription (comme les régies), sinon premier contact. Sans UTM mais avec un identifiant de clic, la source est déduite (`gclid` → google, `fbclid` → meta, `ttclid` → tiktok). « (direct) » = aucune campagne vue sur l'appareil.
+- **Activé** = parent d'au moins un bébé (créé ou rejoint).
+- **CA** = prix du premier paiement (`analytics.plan_prices`, TTC), hors remboursés. À mettre à jour si les prix Stripe changent : `update analytics.plan_prices set first_payment_eur = 34.99 where plan = 'yearly';`
+- Un compte supprimé emporte ses mesures.
 
 ## Limites connues
 

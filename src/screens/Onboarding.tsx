@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { usePremium } from '../components/premium';
 import { errorMessage, type Store } from '../data/store';
+import { trackConversion } from '../lib/analytics';
 import type { Baby } from '../lib/types';
 import { dayKey } from '../lib/time';
 
@@ -28,7 +29,9 @@ export function Onboarding({ store, first, onDone, onCancel }: Props) {
     setBusy(true);
     setError(null);
     try {
-      onDone(await store.createBaby({ name: name.trim(), birthDate: birthDate || null }));
+      const baby = await store.createBaby({ name: name.trim(), birthDate: birthDate || null });
+      trackConversion({ name: 'baby_created', first });
+      onDone(baby);
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);
