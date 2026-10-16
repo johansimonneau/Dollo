@@ -27,6 +27,11 @@ export async function handle(): Promise<Response> {
     .or('feed_every_min.not.is.null,diaper_dry_hours.not.is.null,daily_med_name.not.is.null');
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
+  // Notifications app fermée : réservées aux bébés Dollo+ (migration 0010). Base pas encore migrée : tout le monde.
+  const premium = await db.rpc('premium_baby_ids');
+  const premiumIds = premium.error ? null : new Set((premium.data as string[] | null) ?? []);
+  if (premiumIds) settings.splice(0, settings.length, ...settings.filter((s) => premiumIds.has(s.baby_id as string)));
+
   // Événements des dernières 48 h, une requête par bébé.
   const eventsByBaby = new Map<string, ReminderEvent[]>();
   const since = new Date(now - 48 * 3_600_000).toISOString();

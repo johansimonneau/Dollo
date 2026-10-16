@@ -464,3 +464,43 @@ ul { list-style: none; margin: 0; padding: 0; }
 .voice-hint { margin: 6px 0 0; color: var(--muted); font-size: 0.9rem; }
 .link-list { list-style: none; margin: 8px 0 12px; padding: 0; }
 .link-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+
+/* ───────── Dollo+ ───────── */
+:root { --plus: #7048e8; --plus-2: #c2255c; --plus-bg: #f3edff; --plus-fg: #5f3dc4; }
+@media (prefers-color-scheme: dark) { :root { --plus-bg: #2b2060; --plus-fg: #d0bfff; } }
+.plus-tag {
+  display: inline-block; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.02em; text-transform: none; padding: 2px 8px;
+  border-radius: 99px; color: #fff; background: linear-gradient(135deg, var(--plus), var(--plus-2)); vertical-align: 0.1em; white-space: nowrap;
+}
+.btn .plus-tag, .link-btn .plus-tag, .segmented .plus-tag { margin-left: 4px; text-decoration: none; }
+.plus-card { border-color: color-mix(in srgb, var(--plus) 35%, var(--border)); }
+.plus-nudge {
+  display: flex; align-items: center; gap: 8px; margin: 10px 16px -12px; padding: 6px 14px 6px 6px; border-radius: 18px;
+  background: var(--plus-bg); color: var(--plus-fg);
+}
+.plus-nudge-main { flex: 1; display: flex; align-items: center; gap: 12px; padding: 8px; border: 0; background: none; color: inherit; font: inherit; font-weight: 700; text-align: left; line-height: 1.3; }
+.plus-nudge-main small { display: block; font-weight: 500; opacity: 0.9; }
+.plus-nudge .link-btn { color: inherit; font-size: 0.85rem; white-space: nowrap; }
+.locked-feature { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.paywall { display: flex; flex-direction: column; gap: 12px; }
+.paywall-title { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.01em; line-height: 1.2; }
+.paywall-pitch { color: var(--muted); }
+.paywall-gift { background: var(--plus-bg); color: var(--plus-fg); border-radius: 14px; padding: 10px 14px; font-weight: 600; font-size: 0.92rem; }
+.paywall-benefits { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.paywall-benefits li { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.paywall-benefits li svg { color: var(--accent); flex: none; }
+.paywall-benefits li.current { color: var(--plus-fg); }
+.plans { display: grid; gap: 8px; }
+.plan {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 12px; text-align: left; padding: 12px 14px; min-height: 64px;
+  border-radius: 16px; border: 2px solid var(--border); background: var(--surface); color: var(--text); font: inherit;
+}
+.plan[aria-checked='true'] { border-color: var(--plus); background: var(--plus-bg); }
+.plan-head { display: flex; align-items: center; gap: 8px; font-weight: 750; }
+.plan-badge { font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: var(--accent); color: var(--accent-ink); }
+.plan-price { grid-row: span 2; font-size: 1.15rem; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
+.plan-price small { display: block; font-size: 0.75rem; font-weight: 600; color: var(--muted); }
+.plan-note { font-size: 0.82rem; color: var(--muted); }
+.paywall-fine { font-size: 0.8rem; color: var(--muted); text-align: center; }
+/* Bouton de paiement toujours visible, même quand la liste des avantages dépasse l'écran. */
+.paywall-cta { position: sticky; bottom: 0; margin: 0 -4px; padding: 12px 4px 8px; background: linear-gradient(transparent, var(--bg) 35%); }

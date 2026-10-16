@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useToast } from './components/toast';
 import { errorMessage, type Store } from './data/store';
 import type { Baby } from './lib/types';
+import { PremiumProvider } from './components/premium';
 import { Shell } from './Shell';
 import { Onboarding } from './screens/Onboarding';
 
@@ -73,33 +74,33 @@ export function BabyGate({ store, email, userId, onSignOut }: Props) {
 
   const baby = babies.find((b) => b.id === selectedId) ?? babies[0] ?? null;
 
-  if (!baby || adding) {
-    return (
-      <Onboarding
-        store={store}
-        first={!baby}
-        onCancel={baby ? () => setAdding(false) : undefined}
-        onDone={(b) => {
-          setBabies((prev) => [...(prev ?? []).filter((x) => x.id !== b.id), b]);
-          select(b.id);
-          setAdding(false);
-        }}
-      />
-    );
-  }
-
   return (
-    <Shell
-      store={store}
-      babies={babies}
-      baby={baby}
-      email={email}
-      userId={userId}
-      onSelectBaby={select}
-      onBabyUpdated={(b) => setBabies((prev) => (prev ?? []).map((x) => (x.id === b.id ? b : x)))}
-      onAddBaby={() => setAdding(true)}
-      onSignOut={onSignOut}
-    />
+    <PremiumProvider store={store} userId={userId} babyId={baby?.id ?? null} nanny={baby?.role === 'nanny'}>
+      {!baby || adding ? (
+        <Onboarding
+          store={store}
+          first={!baby}
+          onCancel={baby ? () => setAdding(false) : undefined}
+          onDone={(b) => {
+            setBabies((prev) => [...(prev ?? []).filter((x) => x.id !== b.id), b]);
+            select(b.id);
+            setAdding(false);
+          }}
+        />
+      ) : (
+        <Shell
+          store={store}
+          babies={babies}
+          baby={baby}
+          email={email}
+          userId={userId}
+          onSelectBaby={select}
+          onBabyUpdated={(b) => setBabies((prev) => (prev ?? []).map((x) => (x.id === b.id ? b : x)))}
+          onAddBaby={() => setAdding(true)}
+          onSignOut={onSignOut}
+        />
+      )}
+    </PremiumProvider>
   );
 }
 

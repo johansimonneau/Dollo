@@ -5,6 +5,8 @@ import { PediatricianReport } from '../components/PediatricianReport';
 import { RemindersSettings } from '../components/RemindersSettings';
 import { HandsFree } from '../components/HandsFree';
 import { Members } from '../components/Members';
+import { PlusTag, usePremium } from '../components/premium';
+import { PlusCard } from '../components/PlusCards';
 import { useToast } from '../components/toast';
 import { errorMessage, type Store } from '../data/store';
 import { eventsToCsv } from '../lib/labels';
@@ -31,6 +33,7 @@ const prettyCode = (code: string) => (code.length === 10 ? `${code.slice(0, 5)}-
 
 export function Settings({ nanny = false, reminderPrefs, onReminderPrefsChange, store, baby, events, email, now, onBabyUpdated, onAddBaby, onSignOut }: Props) {
   const toast = useToast();
+  const premium = usePremium();
   const [name, setName] = useState(baby.name);
   const [birthDate, setBirthDate] = useState(baby.birthDate ?? '');
   const [busy, setBusy] = useState(false);
@@ -149,6 +152,8 @@ export function Settings({ nanny = false, reminderPrefs, onReminderPrefsChange, 
 
   return (
     <div className="screen">
+      <PlusCard babyName={baby.name} now={now} />
+
       <section className="card pad" aria-label="Profil de bébé">
         <h2 className="section-title flush">Bébé{age ? ` · ${age}` : ''}</h2>
         <form onSubmit={save}>
@@ -178,7 +183,7 @@ export function Settings({ nanny = false, reminderPrefs, onReminderPrefsChange, 
           </button>
         </form>
         <button type="button" className="link-btn left" onClick={onAddBaby}>
-          + Ajouter un autre bébé
+          + Ajouter un autre bébé {!premium.has('babies') && <PlusTag />}
         </button>
       </section>
 
@@ -218,12 +223,12 @@ export function Settings({ nanny = false, reminderPrefs, onReminderPrefsChange, 
       <section className="card pad" aria-label="Données">
         <h2 className="section-title flush">Données</h2>
         <p className="hint">Pour la consultation : un rapport d'une page (7 derniers jours, mesures, courbes), à imprimer ou enregistrer en PDF.</p>
-        <button type="button" className="btn primary" onClick={() => setReport(true)}>
-          Rapport pour le pédiatre
+        <button type="button" className="btn primary" onClick={() => premium.require('report') && setReport(true)}>
+          Rapport pour le pédiatre {!premium.has('report') && <PlusTag />}
         </button>
         <p className="hint">Ou tout le journal (45 derniers jours) en tableau, pour Excel.</p>
-        <button type="button" className="btn" onClick={exportCsv} disabled={events.length === 0}>
-          Exporter en CSV
+        <button type="button" className="btn" onClick={() => premium.require('export') && exportCsv()} disabled={events.length === 0}>
+          Exporter en CSV {!premium.has('export') && <PlusTag />}
         </button>
         {report && <PediatricianReport store={store} baby={baby} events={events} now={now} onClose={() => setReport(false)} />}
       </section>

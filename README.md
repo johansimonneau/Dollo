@@ -38,7 +38,7 @@ Sur [supabase.com](https://supabase.com) → *New project*. Choisissez une **ré
 > Utilisez un projet vierge, pas une base qui sert déjà à autre chose : la migration crée les tables `babies`, `baby_members`, `events` et `baby_invitations` dans le schéma `public`.
 
 ### 2. Créer les tables
-*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`, `0005_nanny.sql`, `0006_reminders.sql`, `0007_growth.sql`, `0008_health.sql`, `0009_milk.sql`.
+*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`, `0005_nanny.sql`, `0006_reminders.sql`, `0007_growth.sql`, `0008_health.sql`, `0009_milk.sql`, `0010_billing.sql`.
 
 ### 3. Récupérer les deux clés publiques
 *Project Settings → API Keys* (ou *API*) :
@@ -88,6 +88,57 @@ Ne les lancez jamais sur votre base Supabase : le script crée de faux rôles et
 ## Déploiement
 
 Projet Vite standard : sur Vercel, framework *Vite*, commande `npm run build`, dossier `dist`.
+
+## Dollo+ (offre payante)
+
+| Gratuit | Dollo+ |
+| --- | --- |
+| Saisie (tétées, biberons, couches, dodos, santé, tirage), journal, stats 7 jours, vaccins | **Partage avec la nounou** |
+| Partage en direct entre les deux parents | **Notifications** de rappel, même app fermée (les bandeaux dans l'app restent gratuits) |
+| Hors ligne, dictée, liens d'action | **Rapport pour le pédiatre** et **export CSV** |
+| Un bébé | **Courbes de croissance OMS**, **stock de lait**, **plusieurs bébés** |
+
+**Prix** : 3,99 €/mois, 29,99 €/an (−37 %), ou 49,99 € à vie. Un paiement couvre **toute la famille** : un bébé est Dollo+ dès qu'un de ses parents l'est (l'autre parent et la nounou en profitent ; l'abonnement d'une nounou ne compte pas).
+
+**Lancement** : la migration `0010_billing.sql` offre **14 jours de Dollo+** à tous les comptes existants à la date où elle est appliquée. Appliquez-la le jour du lancement.
+
+**Dans l'app** : Réglages → Dollo+ (formule, renouvellement, portail Stripe pour changer de carte ou résilier). Chaque fonction verrouillée porte un repère « Dollo+ » et ouvre la présentation de l'offre, centrée sur cette fonction. Pendant les 5 derniers jours de la période offerte, puis 30 jours après la fin, un bandeau sur *Aujourd'hui* relance (masquable pour la journée). Au retour du paiement (`/?app&billing=success`), l'app attend l'activation et l'annonce. Cette adresse peut servir d'URL de conversion (pixel publicitaire, analytics).
+
+**Verrous dans la base** (pas seulement dans l'interface) : invitation et accès de la nounou, création d'un 2e bébé, envoi des notifications (`send-reminders` ne notifie que les bébés Dollo+). Les autres fonctions sont verrouillées dans l'app. Quand Dollo+ s'arrête, **aucune donnée n'est supprimée** : tout revient dès la réactivation. Sans la migration 0010, ou en mode local, tout reste ouvert.
+
+### Mise en service du paiement (Stripe, une fois)
+1. Déployez les deux fonctions :
+   ```bash
+   supabase functions deploy billing
+   supabase functions deploy billing-webhook --no-verify-jwt
+   ```
+2. **Clé API** : dans Stripe → Développeurs → Clés API, créez une **clé restreinte** (`rk_test_…`, puis `rk_live_…`) plutôt que la clé secrète complète. Elle n'a besoin que de : *Customers* (écriture), *Checkout Sessions* (écriture), *Customer portal* (écriture), *Subscriptions* (lecture), *Products*, *Prices*, *Webhook Endpoints* (écriture, uniquement pour le script ci-dessous). Une clé ne va jamais dans le code ni dans Vercel : seulement dans les secrets Supabase.
+3. **Préparez le compte Stripe en une commande** (produits « Dollo+ » 3,99 €/mois et 29,99 €/an, « Dollo+ à vie » 49,99 €, prix TTC, portail client, webhook) :
+   ```bash
+   STRIPE_SECRET_KEY=rk_test_… SUPABASE_URL=https://xxxx.supabase.co node scripts/stripe-setup.mjs
+   ```
+   Le script affiche la commande `supabase secrets set …` avec les identifiants de prix, du portail et le secret du webhook. Il se relance sans risque. Les prix affichés dans l'app sont dans `src/lib/billing.ts` (`PRICES`) : gardez-les identiques.
+4. **Supabase → Edge Functions → Secrets** (ou la commande affichée par le script) :
+
+   | Secret | Valeur |
+   | --- | --- |
+   | `STRIPE_SECRET_KEY` | clé restreinte (`rk_…`) ou secrète (`sk_…`) |
+   | `STRIPE_WEBHOOK_SECRET` | secret de signature du webhook (`whsec_…`) |
+   | `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY`, `STRIPE_PRICE_LIFETIME` | identifiants des trois prix (`price_…`) |
+   | `STRIPE_PORTAL_CONFIGURATION` | portail client créé par le script (`bpc_…`) ; sans lui, celui par défaut du tableau de bord |
+   | `APP_URL` | adresse de l'app (`https://…`), où Stripe ramène après le paiement. Plusieurs adresses séparées par des virgules (préproduction). |
+   | `STRIPE_TRIAL_DAYS` | facultatif : jours d'essai gratuit sur un premier abonnement (ex. `7`, **14 au maximum**) |
+   | `STRIPE_AUTOMATIC_TAX` | facultatif : `true` pour que Stripe Tax calcule la TVA (voir ci-dessous) |
+
+5. Testez en mode test (carte `4242 4242 4242 4242`, échec : `4000 0000 0000 0341`) : Réglages → Dollo+ → payer → retour dans l'app, Dollo+ actif en quelques secondes. Puis refaites les étapes 2 à 4 en mode live (`node scripts/stripe-setup.mjs --live`).
+
+**TVA.** Les prix sont TTC (`tax_behavior: inclusive`). N'activez `STRIPE_AUTOMATIC_TAX=true` qu'**après** avoir renseigné l'adresse du siège et ajouté votre immatriculation (France, et le guichet unique OSS pour les autres pays de l'UE) dans Stripe → Taxes : sans immatriculation active, Stripe ne collecte rien et ne signale aucune erreur. Faites valider vos obligations par votre comptable.
+
+**Sécurité.** Activez la double authentification par clé d'accès ou application (pas par SMS) sur le compte Stripe. Les fonctions appellent l'API Stripe avec une version figée (`2026-08-26.dahlia`, `supabase/functions/_shared/stripe.ts`) ; le webhook vérifie la signature de chaque événement. Avant la mise en ligne : [liste de contrôle Stripe](https://docs.stripe.com/get-started/checklist/go-live.md).
+
+Remboursement d'un achat à vie (total) : Dollo+ est retiré automatiquement. Offrir Dollo+ à quelqu'un (SQL Editor) : `insert into entitlements (user_id, plan, status, current_period_end) values ('<id du compte>', 'gift', 'active', now() + interval '1 year');`.
+
+Les clés Stripe ne sont jamais dans l'app : seules les fonctions serveur les lisent. Les droits ne sont écrits que par le webhook (signature Stripe vérifiée) ; un client ne peut ni en créer ni en modifier (RLS, suite `09_billing.sql`).
 
 ## Rappels et notifications
 
@@ -155,6 +206,7 @@ Sans réseau (chambre sans signal, métro), Dollo s'ouvre avec les dernières do
 
 - Hors ligne, seules les saisies d'événements sont mises en file ; inviter, régler les rappels ou modifier le profil demandent du réseau.
 - Les données du mode local ne sont pas migrées automatiquement vers le compte cloud.
+- Dollo+ se paie par carte sur la page Stripe (pas d'achat intégré Apple / Google : l'app n'est pas dans les stores).
 
 ---
 

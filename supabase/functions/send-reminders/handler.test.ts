@@ -9,7 +9,7 @@ const iso = (agoH: number) => new Date(Date.now() - agoH * H).toISOString();
 const alice = 'a0000000-0000-0000-0000-00000000000a';
 const baby = 'b0000000-0000-0000-0000-00000000000b';
 
-function fakeWorld() {
+function fakeWorld(premiumBabies: string[] = [baby]) {
   const sent = new Set<string>();
   const devices = [
     { id: 'd1', endpoint: '', p256dh: '', auth: '' },
@@ -39,6 +39,8 @@ function fakeWorld() {
     switch (url.pathname) {
       case '/rest/v1/reminder_settings':
         return json(settings);
+      case '/rest/v1/rpc/premium_baby_ids':
+        return json(premiumBabies);
       case '/rest/v1/events':
         return json(events);
       case '/rest/v1/push_subscriptions':
@@ -88,6 +90,22 @@ Deno.test("envoie le rappel repas dû, une seule fois, et oublie l'appareil dés
 
     const second = await (await handle()).json();
     if (second.sent !== 0 || w.pushed.length !== 3) throw new Error(`doublon envoyé au 2e passage : ${JSON.stringify(second)}`);
+  } finally {
+    await w.server.shutdown();
+    await w.push.shutdown();
+  }
+});
+
+Deno.test("pas de notification pour un bébé sans Dollo+ (les bandeaux dans l'app restent)", async () => {
+  const w = fakeWorld([]);
+  Deno.env.set('SUPABASE_URL', w.base);
+  const keys = webpush.generateVAPIDKeys();
+  Deno.env.set('VAPID_PUBLIC_KEY', keys.publicKey);
+  Deno.env.set('VAPID_PRIVATE_KEY', keys.privateKey);
+  const { handle } = await import('./handler.ts');
+  try {
+    const res = await (await handle()).json();
+    if (res.checked !== 0 || res.sent !== 0 || w.pushed.length !== 0) throw new Error(`aucun envoi attendu : ${JSON.stringify(res)}`);
   } finally {
     await w.server.shutdown();
     await w.push.shutdown();
