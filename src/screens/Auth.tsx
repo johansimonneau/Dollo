@@ -13,7 +13,7 @@ const MIN_PASSWORD = 8;
  * Deux onglets : « Créer un compte » (e-mail, mot de passe, confirmation) et « Se connecter » (e-mail, mot de passe).
  * Après l'inscription, Supabase envoie un lien de confirmation : on l'explique clairement avec la possibilité de le renvoyer.
  */
-export function AuthScreen() {
+export function AuthScreen({ notice = null }: { notice?: string | null } = {}) {
   // Retour d'un lien d'e-mail périmé (déjà utilisé, trop ancien) : on l'explique et on propose de se connecter.
   const [mode, setMode] = useState<Mode>(authErrorInUrl ? 'signin' : 'signup');
   const [email, setEmail] = useState('');
@@ -23,7 +23,7 @@ export function AuthScreen() {
   const [error, setError] = useState<string | null>(
     authErrorInUrl ? 'Ce lien a expiré ou a déjà été utilisé. Connectez-vous, ou refaites la demande.' : null,
   );
-  const [info, setInfo] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(notice);
   /** Adresse en attente de confirmation (affiche l'écran « vérifiez vos e-mails »). */
   const [pending, setPending] = useState<string | null>(null);
 

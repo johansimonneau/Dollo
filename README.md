@@ -38,7 +38,7 @@ Sur [supabase.com](https://supabase.com) → *New project*. Choisissez une **ré
 > Utilisez un projet vierge, pas une base qui sert déjà à autre chose : la migration crée les tables `babies`, `baby_members`, `events` et `baby_invitations` dans le schéma `public`.
 
 ### 2. Créer les tables
-*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`, `0005_nanny.sql`, `0006_reminders.sql`, `0007_growth.sql`, `0008_health.sql`, `0009_milk.sql`, `0010_billing.sql`, `0011_analytics.sql`.
+*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`, `0005_nanny.sql`, `0006_reminders.sql`, `0007_growth.sql`, `0008_health.sql`, `0009_milk.sql`, `0010_billing.sql`, `0011_analytics.sql`, `0012_account_deletion.sql`.
 
 ### 3. Récupérer les deux clés publiques
 *Project Settings → API Keys* (ou *API*) :
@@ -72,6 +72,20 @@ Le **code d'invitation** à recopier reste disponible en alternative. Le créate
 Le parent invite une adresse → la base enregistre l'invitation (valable 14 jours, 5 en attente au plus) et l'app partage un lien → l'invité crée son compte avec **cette adresse**, la confirme et se connecte → l'app appelle `accept_invitations()` qui l'ajoute au bébé. Une adresse non vérifiée, une invitation expirée ou annulée n'ouvrent aucun accès.
 
 ---
+
+## Suppression de compte
+
+*Réglages → Compte → Supprimer mon compte* : la personne lit ce qui va se passer, recopie « SUPPRIMER » et confirme. Exigé par le RGPD et par l'App Store.
+
+1. Le paiement Stripe est arrêté d'abord (client Stripe supprimé : abonnements résiliés, plus aucun prélèvement ; factures gardées par Stripe). S'il échoue, **rien n'est supprimé**.
+2. Un bébé partagé passe à l'autre parent (le plus ancien), avec tout son journal ; une nounou n'hérite jamais.
+3. Le compte est supprimé ; le reste suit en cascade (accès, invitations, rappels, droits Dollo+, mesures de campagne). Mesures, vaccins et sachets de lait notés par la personne restent au bébé, sans auteur.
+
+Mise en service, une fois : migration `0012_account_deletion.sql`, puis
+
+```bash
+supabase functions deploy delete-account
+```
 
 ## Sécurité
 

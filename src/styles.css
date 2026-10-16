@@ -308,6 +308,7 @@ ul { list-style: none; margin: 0; padding: 0; }
 .invitation-actions .link-btn { padding: 6px 0; min-height: 36px; }
 .invitation-list.members { margin: 0 0 14px; }
 .link-btn.danger { color: var(--danger); }
+.delete-list { margin: 0 0 12px; padding-left: 20px; list-style: disc; display: grid; gap: 6px; }
 .auth, .splash { min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 24px 20px; flex-direction: column; gap: 16px; }
 .auth-card { width: min(420px, 100%); display: flex; flex-direction: column; gap: 6px; }
 .logo { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.03em; color: var(--accent); }

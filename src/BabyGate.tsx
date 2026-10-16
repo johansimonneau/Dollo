@@ -20,9 +20,10 @@ interface Props {
   email: string | null;
   userId: string | null;
   onSignOut: (() => void) | null;
+  onDeleteAccount?: (() => Promise<void>) | null;
 }
 
-export function BabyGate({ store, email, userId, onSignOut }: Props) {
+export function BabyGate({ store, email, userId, onSignOut, onDeleteAccount = null }: Props) {
   const [babies, setBabies] = useState<Baby[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(readSelected);
@@ -98,6 +99,7 @@ export function BabyGate({ store, email, userId, onSignOut }: Props) {
           onBabyUpdated={(b) => setBabies((prev) => (prev ?? []).map((x) => (x.id === b.id ? b : x)))}
           onAddBaby={() => setAdding(true)}
           onSignOut={onSignOut}
+          onDeleteAccount={onDeleteAccount}
         />
       )}
     </PremiumProvider>

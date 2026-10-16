@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Baby, BabyEvent, DiaperType, EventKind, Invitation, InviteRole, Measurement, Member, MilkBag, NewEvent, NewMeasurement, PumpSide, Role } from '../lib/types';
 import { DEFAULT_PREFS } from '../../supabase/functions/_shared/reminders';
+import { DELETE_CONFIRMATION } from '../../supabase/functions/_shared/account';
 import { toBilling, UNLOCKED, type BillingRow, type PaidPlan } from '../lib/billing';
 import { isNetworkFailure, NetworkError, StoreError, type BabyInput, type Store } from './store';
 
@@ -478,6 +479,16 @@ export function createSupabaseStore(client: SupabaseClient): Store {
 
     openBillingPortal() {
       return billingUrl(client, { action: 'portal' });
+    },
+
+    async deleteAccount() {
+      const { error } = await client.functions.invoke('delete-account', { body: { confirm: DELETE_CONFIRMATION } });
+      if (!error) return;
+      const context = (error as { context?: Response }).context;
+      const detail = context && typeof context.json === 'function' ? ((await context.json().catch(() => null)) as { error?: string } | null)?.error : undefined;
+      if (!detail && isNetworkFailure(error.message)) throw new NetworkError();
+      if (detail === 'not_authenticated') throw new StoreError(BILLING_MESSAGES.not_authenticated);
+      throw new StoreError("La suppression n'a pas pu aboutir : rien n'a été supprimé. Réessayez dans un instant.");
     },
 
     async updateEvent(id, patch) {

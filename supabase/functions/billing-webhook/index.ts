@@ -31,6 +31,8 @@ Deno.serve(async (req) => {
 
   const save = async (row: EntitlementRow) => {
     const { error } = await db.from('entitlements').upsert(row, { onConflict: 'stripe_ref' });
+    // Compte supprimé depuis l'app (son client Stripe aussi) : l'annonce de résiliation qui suit n'a plus de destinataire.
+    if (error?.code === '23503') return console.warn(`Droit ${row.stripe_ref} ignoré : compte supprimé`);
     if (error) throw new Error(error.message);
   };
   const userForCustomer = async (customer: unknown): Promise<string | null> => {
