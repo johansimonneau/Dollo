@@ -56,12 +56,13 @@ interface Props {
   onBabyUpdated: (baby: Baby) => void;
   onAddBaby: () => void;
   onSignOut: (() => void) | null;
+  onDeleteAccount?: (() => Promise<void>) | null;
 }
 
 /** Ce que voit la nounou : les dernières 48 h (la base n'en renvoie pas plus). */
 const NANNY_DAYS = 2;
 
-export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBabyUpdated, onAddBaby, onSignOut }: Props) {
+export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBabyUpdated, onAddBaby, onSignOut, onDeleteAccount = null }: Props) {
   const toast = useToast();
   const premium = usePremium();
   const nanny = baby.role === 'nanny';
@@ -494,6 +495,7 @@ export function Shell({ store, babies, baby, email, userId, onSelectBaby, onBaby
             onBabyUpdated={onBabyUpdated}
             onAddBaby={onAddBaby}
             onSignOut={onSignOut}
+            onDeleteAccount={onDeleteAccount}
           />
         )}
       </main>

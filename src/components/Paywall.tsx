@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { errorMessage, type Store } from '../data/store';
+import { trackConversion } from '../lib/analytics';
 import { FEATURE_ORDER, FEATURES, fmtPeriodEnd, PLAN_ORDER, PRICES, type BillingStatus, type Feature, type PaidPlan } from '../lib/billing';
 import { Icon } from './icons';
 import { Sheet } from './Sheet';
@@ -27,7 +28,9 @@ export function Paywall({ store, feature, canBuy, billing, onClose }: Props) {
     setBusy(true);
     setError(null);
     try {
-      window.location.assign(await store.startCheckout(plan));
+      const url = await store.startCheckout(plan);
+      trackConversion({ name: 'checkout_started', plan });
+      window.location.assign(url);
     } catch (e) {
       setError(errorMessage(e));
       setBusy(false);
