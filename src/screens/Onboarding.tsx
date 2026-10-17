@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { DeleteAccount } from '../components/DeleteAccount';
 import { usePremium } from '../components/premium';
 import { errorMessage, type Store } from '../data/store';
 import { trackConversion } from '../lib/analytics';
@@ -11,9 +12,11 @@ interface Props {
   first: boolean;
   onDone: (baby: Baby) => void;
   onCancel?: () => void;
+  /** Premier lancement en ligne : se déconnecter ou supprimer son compte sans devoir créer de bébé. */
+  account?: { email: string | null; onSignOut: () => void; onDeleteAccount: (() => Promise<void>) | null };
 }
 
-export function Onboarding({ store, first, onDone, onCancel }: Props) {
+export function Onboarding({ store, first, onDone, onCancel, account }: Props) {
   const [name, setName] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [code, setCode] = useState('');
@@ -100,6 +103,18 @@ export function Onboarding({ store, first, onDone, onCancel }: Props) {
           <button type="button" className="link-btn" onClick={onCancel}>
             Annuler
           </button>
+        )}
+
+        {first && account && (
+          <div className="onboarding-account">
+            {account.email && <p className="hint">Connecté en tant que {account.email}</p>}
+            <div className="onboarding-account-actions">
+              <button type="button" className="link-btn" onClick={account.onSignOut}>
+                Se déconnecter
+              </button>
+              {account.onDeleteAccount && <DeleteAccount nanny={false} onDelete={account.onDeleteAccount} />}
+            </div>
+          </div>
         )}
       </div>
     </main>

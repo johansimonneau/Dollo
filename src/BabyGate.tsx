@@ -82,6 +82,7 @@ export function BabyGate({ store, email, userId, onSignOut, onDeleteAccount = nu
           store={store}
           first={!baby}
           onCancel={baby ? () => setAdding(false) : undefined}
+          account={onSignOut ? { email, onSignOut, onDeleteAccount } : undefined}
           onDone={(b) => {
             setBabies((prev) => [...(prev ?? []).filter((x) => x.id !== b.id), b]);
             select(b.id);
