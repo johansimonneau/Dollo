@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { errorMessage, type Store } from '../data/store';
+import { trackConversion } from '../lib/analytics';
 import { unlocked, UNLOCKED, type BillingStatus, type Feature } from '../lib/billing';
 import { Paywall } from './Paywall';
 import { useToast } from './toast';
@@ -92,6 +93,8 @@ export function PremiumProvider({ store, userId, babyId, nanny, children }: Prop
     const rest = params.toString().replace(/=(&|$)/g, '$1');
     window.history.replaceState(null, '', `${window.location.pathname}${rest ? `?${rest}` : ''}${window.location.hash}`);
     if (result !== 'success') return;
+    // Une seule fois : le paramètre vient d'être retiré de l'adresse (un rechargement ne recompte pas).
+    trackConversion({ name: 'purchase' });
     toast.show('Merci ! Activation de Dollo+…', { durationMs: 4000 });
     let tries = 0;
     let stop = false;

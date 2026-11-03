@@ -71,6 +71,11 @@ export interface Store {
   startCheckout(plan: PaidPlan): Promise<string>;
   /** Adresse du portail Stripe (moyen de paiement, factures, résiliation). */
   openBillingPortal(): Promise<string>;
+  /**
+   * Supprime définitivement le compte (cloud uniquement) : paiement Stripe résilié, bébés partagés transmis à l'autre
+   * parent, le reste effacé. La session n'est plus valable ensuite.
+   */
+  deleteAccount(): Promise<void>;
   listEvents(babyId: string, sinceIso: string): Promise<BabyEvent[]>;
   /** `id` : identifiant choisi par l'appareil (saisie hors ligne rejouée plus tard sans doublon). */
   addEvent(event: NewEvent, id?: string): Promise<BabyEvent>;

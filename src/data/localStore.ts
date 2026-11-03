@@ -53,6 +53,9 @@ export function createLocalStore(): Store {
     async openBillingPortal() {
       throw new StoreError('Dollo+ nécessite un compte en ligne.');
     },
+    async deleteAccount() {
+      throw new StoreError("Pas de compte en mode local : les données restent sur cet appareil.");
+    },
 
     async listBabies() {
       return read().babies;

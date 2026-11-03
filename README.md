@@ -38,7 +38,7 @@ Sur [supabase.com](https://supabase.com) → *New project*. Choisissez une **ré
 > Utilisez un projet vierge, pas une base qui sert déjà à autre chose : la migration crée les tables `babies`, `baby_members`, `events` et `baby_invitations` dans le schéma `public`.
 
 ### 2. Créer les tables
-*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`, `0005_nanny.sql`, `0006_reminders.sql`, `0007_growth.sql`, `0008_health.sql`, `0009_milk.sql`, `0010_billing.sql`.
+*SQL Editor* → *New query* → collez et lancez (*Run*) chaque fichier de **`supabase/migrations/`**, **dans l'ordre** : `0001_init.sql`, `0002_invitations.sql`, `0003_touch_updated_at_search_path.sql`, `0004_members.sql`, `0005_nanny.sql`, `0006_reminders.sql`, `0007_growth.sql`, `0008_health.sql`, `0009_milk.sql`, `0010_billing.sql`, `0011_analytics.sql`, `0012_account_deletion.sql`.
 
 ### 3. Récupérer les deux clés publiques
 *Project Settings → API Keys* (ou *API*) :
@@ -72,6 +72,20 @@ Le **code d'invitation** à recopier reste disponible en alternative. Le créate
 Le parent invite une adresse → la base enregistre l'invitation (valable 14 jours, 5 en attente au plus) et l'app partage un lien → l'invité crée son compte avec **cette adresse**, la confirme et se connecte → l'app appelle `accept_invitations()` qui l'ajoute au bébé. Une adresse non vérifiée, une invitation expirée ou annulée n'ouvrent aucun accès.
 
 ---
+
+## Suppression de compte
+
+*Réglages → Compte → Supprimer mon compte* : la personne lit ce qui va se passer, recopie « SUPPRIMER » et confirme. Exigé par le RGPD et par l'App Store.
+
+1. Le paiement Stripe est arrêté d'abord (client Stripe supprimé : abonnements résiliés, plus aucun prélèvement ; factures gardées par Stripe). S'il échoue, **rien n'est supprimé**.
+2. Un bébé partagé passe à l'autre parent (le plus ancien), avec tout son journal ; une nounou n'hérite jamais.
+3. Le compte est supprimé ; le reste suit en cascade (accès, invitations, rappels, droits Dollo+, mesures de campagne). Mesures, vaccins et sachets de lait notés par la personne restent au bébé, sans auteur.
+
+Mise en service, une fois : migration `0012_account_deletion.sql`, puis
+
+```bash
+supabase functions deploy delete-account
+```
 
 ## Sécurité
 
@@ -201,6 +215,33 @@ Sans réseau (chambre sans signal, métro), Dollo s'ouvre avec les dernières do
 - **Aucune déconnexion** : la session et les données restent sur l'appareil d'une version à l'autre.
 - **Base et app compatibles dans les deux sens** : les migrations ajoutent sans casser, et l'app détecte une base pas encore migrée (repli automatique) — on peut publier l'app avant ou après la migration.
 - **Vérifications automatiques** (`.github/workflows/ci.yml`) sur chaque PR : types, tests unitaires, build, et toutes les migrations + suites de sécurité sur une base jetable. Une PR rouge ne doit pas être fusionnée.
+
+## Mesure des campagnes
+
+Objectif : savoir quelle campagne amène des **clients payants**, pas seulement des visites.
+
+**Dans l'app (Vercel Analytics → *Events*)** : 4 étapes, avec la campagne du dernier contact (UTM) rattachée automatiquement. Aucune donnée personnelle ni de santé n'est envoyée. Les événements personnalisés s'affichent avec un plan Vercel Pro.
+
+| Événement | Quand | Propriété |
+| --- | --- | --- |
+| `sign_up` | compte créé (avant la confirmation de l'e-mail) | – |
+| `baby_created` | bébé créé | `first` (premier bébé ou non) |
+| `checkout_started` | départ vers la page de paiement Stripe | `plan` |
+| `purchase` | retour de Stripe après paiement | – |
+
+**Dans la base (source de vérité)** : la migration `0011_analytics.sql` crée un schéma `analytics` **privé** (ni l'app ni l'API n'y ont accès). Les essais, premiers paiements et remboursements y sont relevés automatiquement à chaque écriture du webhook Stripe ; les renouvellements ne recomptent pas, et une erreur de mesure ne bloque jamais l'activation de Dollo+. Depuis *SQL Editor* :
+
+```sql
+select * from analytics.funnel_by_campaign;   -- inscrits → confirmés → activés → essais → clients → CA, par source / campagne
+select * from analytics.funnel_by_week;       -- même entonnoir par semaine d'inscription
+select * from analytics.user_journey;         -- un compte par ligne (dates, campagne, offre)
+select * from analytics.offline_conversions;  -- achats avec gclid / fbclid / ttclid : à importer comme conversions hors ligne
+```
+
+- **Attribution** : dernier contact avant l'inscription (comme les régies), sinon premier contact. Sans UTM mais avec un identifiant de clic, la source est déduite (`gclid` → google, `fbclid` → meta, `ttclid` → tiktok). « (direct) » = aucune campagne vue sur l'appareil.
+- **Activé** = parent d'au moins un bébé (créé ou rejoint).
+- **CA** = prix du premier paiement (`analytics.plan_prices`, TTC), hors remboursés. À mettre à jour si les prix Stripe changent : `update analytics.plan_prices set first_payment_eur = 34.99 where plan = 'yearly';`
+- Un compte supprimé emporte ses mesures.
 
 ## Limites connues
 

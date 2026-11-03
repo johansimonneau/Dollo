@@ -9,7 +9,7 @@ export async function stripeApi<T = Record<string, unknown>>(
   secretKey: string,
   path: string,
   params?: Record<string, string>,
-  method: 'GET' | 'POST' = params ? 'POST' : 'GET',
+  method: 'GET' | 'POST' | 'DELETE' = params ? 'POST' : 'GET',
 ): Promise<T> {
   const query = method === 'GET' && params ? `?${formBody(params)}` : '';
   const res = await fetch(`https://api.stripe.com/v1/${path}${query}`, {

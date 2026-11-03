@@ -15,7 +15,7 @@ run supabase/tests/00_helpers.sql
 
 out=$(mktemp)
 status=0
-for suite in supabase/tests/0[1-9]_*.sql; do
+for suite in supabase/tests/0[1-9]_*.sql supabase/tests/[1-9][0-9]_*.sql; do
   echo "── $suite"
   run "$suite" >"$out" 2>&1 || status=$?
   grep -E "PASS|FAIL|TESTS .* SONT PASSÉS|ERROR" "$out" || true

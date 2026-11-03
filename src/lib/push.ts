@@ -55,13 +55,14 @@ export async function syncPush(store: Store): Promise<void> {
   if (sub) await store.savePushSubscription(toSubscriptionData(sub));
 }
 
-export async function disablePush(store: Store): Promise<void> {
+/** `store` null : désabonne seulement ce navigateur (compte déjà supprimé, le serveur a tout effacé). */
+export async function disablePush(store: Store | null): Promise<void> {
   if (pushState() !== 'granted') return;
   // `ready` ne se résout jamais sans service worker (développement) : on n'attend pas plus de 3 s.
   const registration = await Promise.race([navigator.serviceWorker.ready, new Promise<null>((r) => setTimeout(() => r(null), 3000))]);
   if (!registration) return;
   const sub = await registration.pushManager.getSubscription();
   if (!sub) return;
-  await store.deletePushSubscription(sub.endpoint);
+  if (store) await store.deletePushSubscription(sub.endpoint);
   await sub.unsubscribe();
 }

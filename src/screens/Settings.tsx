@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import type { ReminderPrefs } from '../../supabase/functions/_shared/reminders';
+import { DeleteAccount } from '../components/DeleteAccount';
 import { InviteByEmail } from '../components/InviteByEmail';
 import { PediatricianReport } from '../components/PediatricianReport';
 import { RemindersSettings } from '../components/RemindersSettings';
@@ -26,12 +27,14 @@ interface Props {
   onBabyUpdated: (baby: Baby) => void;
   onAddBaby: () => void;
   onSignOut: (() => void) | null;
+  /** Suppression définitive du compte (cloud uniquement). */
+  onDeleteAccount?: (() => Promise<void>) | null;
 }
 
 /** AB12CD34EF → AB12C-D34EF, plus lisible à dicter. */
 const prettyCode = (code: string) => (code.length === 10 ? `${code.slice(0, 5)}-${code.slice(5)}` : code);
 
-export function Settings({ nanny = false, reminderPrefs, onReminderPrefsChange, store, baby, events, email, now, onBabyUpdated, onAddBaby, onSignOut }: Props) {
+export function Settings({ nanny = false, reminderPrefs, onReminderPrefsChange, store, baby, events, email, now, onBabyUpdated, onAddBaby, onSignOut, onDeleteAccount = null }: Props) {
   const toast = useToast();
   const premium = usePremium();
   const [name, setName] = useState(baby.name);
@@ -129,6 +132,7 @@ export function Settings({ nanny = false, reminderPrefs, onReminderPrefsChange, 
           <button type="button" className="btn ghost danger" onClick={onSignOut}>
             Se déconnecter
           </button>
+          {onDeleteAccount && <DeleteAccount nanny={nanny} onDelete={onDeleteAccount} />}
         </section>
       )}
     </>
